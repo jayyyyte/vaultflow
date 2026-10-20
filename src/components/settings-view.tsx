@@ -317,7 +317,7 @@ export function SettingsView({ settingsMap, isDefaultPin }: SettingsViewProps) {
             </h3>
           </div>
           <p className="text-xs text-zinc-400 pl-8">
-            Install the Turso CLI or create a database in the Turso Web Console at{" "}
+            Install the Turso CLI (use <code className="text-zinc-200 font-mono">tursodb</code> or <code className="text-zinc-200 font-mono">turso</code> on Windows) or create a database in the Turso Web Console at{" "}
             <a
               href="https://turso.tech"
               target="_blank"
@@ -330,11 +330,11 @@ export function SettingsView({ settingsMap, isDefaultPin }: SettingsViewProps) {
           </p>
           <div className="pl-8">
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-3 font-mono text-xs text-zinc-300 relative group">
-              <code>turso auth signup<br />turso db create vaultflow<br />turso db show vaultflow --url<br />turso db tokens create vaultflow</code>
+              <code>tursodb auth signup<br />tursodb db create vaultflow<br />tursodb db show vaultflow --url<br />tursodb db tokens create vaultflow</code>
               <button
                 onClick={() =>
                   copyToClipboard(
-                    "turso auth signup\nturso db create vaultflow\nturso db show vaultflow --url\nturso db tokens create vaultflow",
+                    "tursodb auth signup\ntursodb db create vaultflow\ntursodb db show vaultflow --url\ntursodb db tokens create vaultflow",
                     "turso-cli"
                   )
                 }

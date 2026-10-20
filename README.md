@@ -101,7 +101,7 @@ The application includes an **automatic SQLite fallback**. You can run and test 
 ```bash
 # 1. Clone repository
 git clone <your-repo-url>
-cd personal-finance-management
+cd vaultflow
 
 # 2. Install dependencies
 pnpm install
@@ -127,22 +127,36 @@ Visit [http://localhost:3000](http://localhost:3000). The default Master PIN is:
 ### Option A: Using the Turso CLI
 
 1. **Install the Turso CLI:**
-   - **macOS / Linux:** `curl -sSfL https://get.tur.so/install.sh | bash`
-   - **Windows (PowerShell):** `irm https://get.tur.so/install.ps1 | iex`
+   - **Windows (Scoop):**
+     ```powershell
+     scoop bucket add turso https://github.com/tursodatabase/homebrew-tap
+     scoop install turso
+     # Lưu ý: Khi cài qua Scoop trên Windows, lệnh CLI mặc định là `tursodb`.
+     # (Đã hỗ trợ cả 2 lệnh `tursodb` và `turso`)
+     ```
+   - **Windows (PowerShell script chính thức):**
+     ```powershell
+     irm https://github.com/tursodatabase/turso/releases/latest/download/turso_cli-installer.ps1 | iex
+     ```
+   - **macOS / Linux:**
+     ```bash
+     curl -sSfL https://get.tur.so/install.sh | bash
+     ```
 
 2. **Authenticate & Create Database:**
    ```bash
-   turso auth signup   # or turso auth login
-   turso db create vaultflow
+   # Dùng `tursodb` (hoặc `turso`):
+   tursodb auth signup   # hoặc: tursodb auth login
+   tursodb db create vaultflow
    ```
 
 3. **Get your Database URL & Auth Token:**
    ```bash
-   # Get URL (e.g., libsql://vaultflow-your-user.turso.io)
-   turso db show vaultflow --url
+   # Lấy URL kết nối (ví dụ: libsql://vaultflow-your-user.turso.io)
+   tursodb db show vaultflow --url
 
-   # Generate Auth Token
-   turso db tokens create vaultflow
+   # Tạo Auth Token
+   tursodb db tokens create vaultflow
    ```
 
 ### Option B: Using the Turso Web Console
