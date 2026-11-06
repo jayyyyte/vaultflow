@@ -16,10 +16,11 @@ import { formatCurrency } from "@/lib/utils";
 
 interface CashFlowChartProps {
   data: MonthlyCashFlowPoint[];
+  currency?: string;
   currencySymbol?: string;
 }
 
-export function CashFlowChart({ data, currencySymbol = "$" }: CashFlowChartProps) {
+export function CashFlowChart({ data, currency = "USD", currencySymbol = "$" }: CashFlowChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="h-64 flex items-center justify-center text-xs text-zinc-500">
@@ -36,13 +37,13 @@ export function CashFlowChart({ data, currencySymbol = "$" }: CashFlowChartProps
           <div className="flex items-center justify-between gap-4">
             <span className="text-emerald-400 font-medium">Income:</span>
             <span className="font-mono text-zinc-100">
-              {formatCurrency(payload[0]?.value || 0, "USD", currencySymbol)}
+              {formatCurrency(payload[0]?.value || 0, currency, currencySymbol)}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-rose-400 font-medium">Expense:</span>
             <span className="font-mono text-zinc-100">
-              {formatCurrency(payload[1]?.value || 0, "USD", currencySymbol)}
+              {formatCurrency(payload[1]?.value || 0, currency, currencySymbol)}
             </span>
           </div>
           {payload[0] && payload[1] && (
@@ -53,7 +54,7 @@ export function CashFlowChart({ data, currencySymbol = "$" }: CashFlowChartProps
                   payload[0].value - payload[1].value >= 0 ? "text-emerald-400" : "text-rose-400"
                 }`}
               >
-                {formatCurrency(payload[0].value - payload[1].value, "USD", currencySymbol)}
+                {formatCurrency(payload[0].value - payload[1].value, currency, currencySymbol)}
               </span>
             </div>
           )}

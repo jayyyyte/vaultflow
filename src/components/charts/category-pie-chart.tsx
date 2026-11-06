@@ -7,10 +7,11 @@ import { formatCurrency } from "@/lib/utils";
 
 interface CategoryPieChartProps {
   data: CategorySpendingPoint[];
+  currency?: string;
   currencySymbol?: string;
 }
 
-export function CategoryPieChart({ data, currencySymbol = "$" }: CategoryPieChartProps) {
+export function CategoryPieChart({ data, currency = "USD", currencySymbol = "$" }: CategoryPieChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="h-56 flex flex-col items-center justify-center text-xs text-zinc-500">
@@ -34,7 +35,7 @@ export function CategoryPieChart({ data, currencySymbol = "$" }: CategoryPieChar
           <div className="flex items-center justify-between gap-4">
             <span className="text-zinc-400">Amount:</span>
             <span className="font-mono text-zinc-100 font-bold">
-              {formatCurrency(item.amount, "USD", currencySymbol)}
+              {formatCurrency(item.amount, currency, currencySymbol)}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">
