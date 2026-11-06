@@ -47,3 +47,39 @@ export interface CategorySpendingPoint {
   color: string;
   percent: number;
 }
+
+export interface CategoryAnalyticsItem {
+  id: string;
+  name: string;
+  type: "expense" | "income";
+  icon: string;
+  color: string;
+  monthlyBudget: number;
+  currentAmount: number;
+  previousAmount: number;
+  momGrowth: number; // percentage change vs previous month (+15% or -10%)
+  shareOfTotal: number; // percentage of total expenses/income
+  transactionCount: number;
+  avgPerTransaction: number;
+  budgetUtilization: number;
+  status: "over_budget" | "warning" | "good" | "unbudgeted";
+}
+
+export interface CategoryAnalytics {
+  currentMonth: string;
+  previousMonth: string;
+  totalExpenseCurrent: number;
+  totalExpensePrevious: number;
+  totalIncomeCurrent: number;
+  totalIncomePrevious: number;
+  expenseCategories: CategoryAnalyticsItem[];
+  incomeCategories: CategoryAnalyticsItem[];
+  insights: {
+    topExpenseCategory?: CategoryAnalyticsItem;
+    fastestGrowingExpense?: CategoryAnalyticsItem;
+    mostFrequentExpense?: CategoryAnalyticsItem;
+    overBudgetCount: number;
+    nearLimitCount: number;
+    totalBudgeted: number;
+  };
+}

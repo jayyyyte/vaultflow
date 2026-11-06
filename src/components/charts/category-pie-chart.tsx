@@ -96,7 +96,7 @@ export function CategoryPieChart({ data, currency = "USD", currencySymbol = "$" 
             </div>
             <div className="flex items-center gap-2 shrink-0 font-mono">
               <span className="text-zinc-200 font-medium">
-                {formatCurrency(item.amount, "USD", currencySymbol)}
+                {formatCurrency(item.amount, currency, currencySymbol)}
               </span>
               <span className="text-[11px] text-zinc-400 w-10 text-right">
                 {item.percent.toFixed(0)}%
