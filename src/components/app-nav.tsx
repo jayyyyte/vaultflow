@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { logout } from "@/actions/auth";
 import { getWalletsWithBalances } from "@/actions/wallets";
 import { getCategories } from "@/actions/categories";
+import { getSettingsMap } from "@/actions/settings";
 import { QuickTransactionModal } from "./quick-transaction-modal";
 import type { WalletWithBalance } from "@/lib/types";
 import type { Category } from "@/db/schema";
@@ -17,8 +18,6 @@ import {
   Settings,
   Plus,
   Lock,
-  LogOut,
-  Shield,
   CircleDollarSign,
 } from "lucide-react";
 
@@ -31,13 +30,22 @@ export function AppNav({ children }: { children: React.ReactNode }) {
   const [quickAddWalletId, setQuickAddWalletId] = useState<string | undefined>();
   const [wallets, setWallets] = useState<WalletWithBalance[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({
+    currency: "USD",
+    currency_symbol: "$",
+  });
 
-  // Load wallets and categories for global modal
+  // Load wallets, categories, and settings for global modal
   const refreshModalData = async () => {
     try {
-      const [w, c] = await Promise.all([getWalletsWithBalances(), getCategories()]);
+      const [w, c, s] = await Promise.all([
+        getWalletsWithBalances(),
+        getCategories(),
+        getSettingsMap(),
+      ]);
       setWallets(w);
       setCategories(c);
+      if (s) setSettings(s);
     } catch {
       // Ignored if on unauthenticated route
     }
@@ -82,7 +90,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 pb-20 md:pb-6">
-      {/* Desktop Top Header Navigation */}
+      {/* Top Header Navigation */}
       <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-[#09090b]/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           {/* Logo & Brand */}
@@ -123,7 +131,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-2">
-            {/* Quick Add Button */}
+            {/* Quick Add Button (Desktop) */}
             <button
               onClick={() => {
                 refreshModalData();
@@ -135,10 +143,23 @@ export function AppNav({ children }: { children: React.ReactNode }) {
               Quick Add
             </button>
 
+            {/* Mobile Settings Shortcut (Header) */}
+            <Link
+              href="/settings"
+              title="Cài đặt (Settings)"
+              className={`md:hidden w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
+                pathname === "/settings"
+                  ? "bg-zinc-800 border-zinc-700 text-emerald-400"
+                  : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100"
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+            </Link>
+
             {/* Lock / Logout */}
             <button
               onClick={handleLogout}
-              title="Lock Vault"
+              title="Khóa Vault (Lock)"
               className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 flex items-center justify-center transition-colors"
             >
               <Lock className="w-4 h-4" />
@@ -158,7 +179,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
           <Link
             href="/"
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
-              pathname === "/" ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"
+              pathname === "/" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <LayoutDashboard className="w-5 h-5 mb-0.5" />
@@ -168,7 +189,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
           <Link
             href="/transactions"
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
-              pathname === "/transactions" ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"
+              pathname === "/transactions" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <Receipt className="w-5 h-5 mb-0.5" />
@@ -193,7 +214,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
           <Link
             href="/wallets"
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
-              pathname === "/wallets" ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"
+              pathname === "/wallets" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <WalletCards className="w-5 h-5 mb-0.5" />
@@ -203,7 +224,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
           <Link
             href="/budgets"
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
-              pathname === "/budgets" ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"
+              pathname === "/budgets" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             <PieChart className="w-5 h-5 mb-0.5" />
@@ -218,6 +239,8 @@ export function AppNav({ children }: { children: React.ReactNode }) {
         onClose={() => setIsQuickAddOpen(false)}
         wallets={wallets}
         categories={categories}
+        currency={settings.currency || "USD"}
+        currencySymbol={settings.currency_symbol || "$"}
         defaultType={quickAddType}
         defaultWalletId={quickAddWalletId}
         onSuccess={() => {

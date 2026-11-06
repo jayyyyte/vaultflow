@@ -25,10 +25,11 @@ import {
 
 interface WalletListProps {
   initialWallets: WalletWithBalance[];
+  currency?: string;
   currencySymbol?: string;
 }
 
-export function WalletList({ initialWallets, currencySymbol = "$" }: WalletListProps) {
+export function WalletList({ initialWallets, currency = "USD", currencySymbol = "$" }: WalletListProps) {
   const router = useRouter();
   const [wallets, setWallets] = useState(initialWallets);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -64,7 +65,7 @@ export function WalletList({ initialWallets, currencySymbol = "$" }: WalletListP
             Total Liquid Balance
           </span>
           <p className="text-xl sm:text-2xl font-black text-white font-mono mt-1">
-            {formatCurrency(totalLiquid, "USD", currencySymbol)}
+            {formatCurrency(totalLiquid, currency, currencySymbol)}
           </p>
           <p className="text-[11px] text-zinc-400 mt-1">Across Cash, Bank & E-Wallets</p>
         </div>
@@ -74,7 +75,7 @@ export function WalletList({ initialWallets, currencySymbol = "$" }: WalletListP
             Total Credit Debt
           </span>
           <p className="text-xl sm:text-2xl font-black text-amber-400 font-mono mt-1">
-            {formatCurrency(totalCreditDebt, "USD", currencySymbol)}
+            {formatCurrency(totalCreditDebt, currency, currencySymbol)}
           </p>
           <p className="text-[11px] text-zinc-400 mt-1">Outstanding credit card balance</p>
         </div>
@@ -88,7 +89,7 @@ export function WalletList({ initialWallets, currencySymbol = "$" }: WalletListP
               netWorth >= 0 ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            {formatCurrency(netWorth, "USD", currencySymbol)}
+            {formatCurrency(netWorth, currency, currencySymbol)}
           </p>
           <p className="text-[11px] text-zinc-400 mt-1">Liquid minus credit liabilities</p>
         </div>

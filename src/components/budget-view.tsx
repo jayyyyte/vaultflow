@@ -27,6 +27,7 @@ interface BudgetViewProps {
   categories: CategoryWithSpending[];
   wallets: WalletWithBalance[];
   recurringBills: RecurringBillWithDetails[];
+  currency?: string;
   currencySymbol?: string;
   currentMonth: string;
 }
@@ -35,6 +36,7 @@ export function BudgetView({
   categories,
   wallets,
   recurringBills,
+  currency = "USD",
   currencySymbol = "$",
   currentMonth,
 }: BudgetViewProps) {
@@ -105,10 +107,10 @@ export function BudgetView({
             </span>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl sm:text-3xl font-black font-mono text-white">
-                {formatCurrency(totalSpent, "USD", currencySymbol)}
+                {formatCurrency(totalSpent, currency, currencySymbol)}
               </span>
               <span className="text-sm font-semibold text-zinc-400 font-mono">
-                / {formatCurrency(totalBudget, "USD", currencySymbol)}
+                / {formatCurrency(totalBudget, currency, currencySymbol)}
               </span>
             </div>
           </div>
@@ -126,7 +128,7 @@ export function BudgetView({
               {overallPercent.toFixed(0)}% Utilized
             </span>
             <p className="text-xs text-zinc-400 mt-1.5 font-mono">
-              Remaining: {formatCurrency(remainingTotal, "USD", currencySymbol)}
+              Remaining: {formatCurrency(remainingTotal, currency, currencySymbol)}
             </p>
           </div>
         </div>
@@ -215,7 +217,7 @@ export function BudgetView({
                       title="Edit Monthly Budget"
                     >
                       <span>
-                        Budget: {budget > 0 ? formatCurrency(budget, "USD", currencySymbol) : "Set"}
+                        Budget: {budget > 0 ? formatCurrency(budget, currency, currencySymbol) : "Set"}
                       </span>
                       <Edit2 className="w-3 h-3 text-zinc-500" />
                     </button>
@@ -227,7 +229,7 @@ export function BudgetView({
                   <span className="text-zinc-400">
                     Spent:{" "}
                     <strong className="text-white">
-                      {formatCurrency(spent, "USD", currencySymbol)}
+                      {formatCurrency(spent, currency, currencySymbol)}
                     </strong>
                   </span>
                   <span
@@ -260,7 +262,7 @@ export function BudgetView({
                 {isOver && (
                   <p className="text-[11px] text-rose-400 flex items-center gap-1 font-medium">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    Exceeded budget by {formatCurrency(spent - budget, "USD", currencySymbol)}!
+                    Exceeded budget by {formatCurrency(spent - budget, currency, currencySymbol)}!
                   </p>
                 )}
               </div>
@@ -335,7 +337,7 @@ export function BudgetView({
                 <div className="flex items-center gap-2.5 shrink-0">
                   <div className="text-right">
                     <p className="text-xs sm:text-sm font-bold font-mono text-white">
-                      {formatCurrency(bill.amount, "USD", currencySymbol)}
+                      {formatCurrency(bill.amount, currency, currencySymbol)}
                     </p>
                     <span className="text-[10px] text-zinc-400 uppercase font-mono">
                       {bill.frequency}
