@@ -25,7 +25,11 @@ export default async function WalletsPage() {
         </div>
       </div>
 
-      <WalletList initialWallets={wallets} currencySymbol={currencySymbol} />
+      <WalletList
+        initialWallets={wallets}
+        currency={settingsMap.currency || "USD"}
+        currencySymbol={currencySymbol}
+      />
     </div>
   );
 }

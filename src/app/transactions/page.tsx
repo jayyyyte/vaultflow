@@ -35,6 +35,7 @@ export default async function TransactionsPage() {
         initialTransactions={allTransactions}
         wallets={wallets}
         categories={categories}
+        currency={settingsMap.currency || "USD"}
         currencySymbol={currencySymbol}
       />
     </div>

@@ -33,6 +33,7 @@ export default async function BudgetsPage() {
         categories={categoriesWithSpending}
         wallets={wallets}
         recurringBills={recurringBills}
+        currency={settingsMap.currency || "USD"}
         currencySymbol={currencySymbol}
         currentMonth={currentMonth}
       />

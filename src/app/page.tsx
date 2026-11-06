@@ -35,6 +35,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const { summary, cashFlowHistory, categoryBreakdown, wallets, recentTransactions, recurringBills } = data;
   const currencySymbol = summary.currencySymbol || "$";
+  const currency = summary.currency || "USD";
 
   return (
     <div className="space-y-6">
@@ -66,10 +67,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-white font-mono tracking-tight">
-            {formatCurrency(summary.netWorth, "USD", currencySymbol)}
+            {formatCurrency(summary.netWorth, currency, currencySymbol)}
           </p>
           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-zinc-400">
-            <span>Liquid: {formatCurrency(summary.totalBalance, "USD", currencySymbol)}</span>
+            <span>Liquid: {formatCurrency(summary.totalBalance, currency, currencySymbol)}</span>
           </div>
           <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none" />
         </div>
@@ -83,7 +84,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-emerald-400 font-mono tracking-tight">
-            {formatCurrency(summary.monthlyIncome, "USD", currencySymbol)}
+            {formatCurrency(summary.monthlyIncome, currency, currencySymbol)}
           </p>
           <p className="text-[11px] text-zinc-400 mt-2">
             In {getMonthYearLabel(currentMonth)}
@@ -99,7 +100,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             </div>
           </div>
           <p className="text-xl sm:text-2xl font-black text-rose-400 font-mono tracking-tight">
-            {formatCurrency(summary.monthlyExpense, "USD", currencySymbol)}
+            {formatCurrency(summary.monthlyExpense, currency, currencySymbol)}
           </p>
           <p className="text-[11px] text-zinc-400 mt-2">
             {summary.monthlyIncome > 0
@@ -122,7 +123,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             summary.monthlySavings >= 0 ? "text-emerald-400" : "text-rose-400"
           }`}>
             {summary.monthlySavings >= 0 ? "+" : ""}
-            {formatCurrency(summary.monthlySavings, "USD", currencySymbol)}
+            {formatCurrency(summary.monthlySavings, currency, currencySymbol)}
           </p>
           <p className="text-[11px] text-zinc-400 mt-2">
             Savings rate: <span className="font-semibold text-zinc-200">{summary.savingsRate.toFixed(0)}%</span>
@@ -190,7 +191,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <p className="text-xs text-zinc-400">Income vs. Expense over past 6 months</p>
             </div>
           </div>
-          <CashFlowChart data={cashFlowHistory} currencySymbol={currencySymbol} />
+          <CashFlowChart data={cashFlowHistory} currency={currency} currencySymbol={currencySymbol} />
         </div>
 
         {/* Expense Category Breakdown */}
@@ -199,7 +200,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             <h3 className="text-sm font-bold text-white">Expenses by Category</h3>
             <p className="text-xs text-zinc-400">Spending breakdown this month</p>
           </div>
-          <CategoryPieChart data={categoryBreakdown} currencySymbol={currencySymbol} />
+          <CategoryPieChart data={categoryBreakdown} currency={currency} currencySymbol={currencySymbol} />
         </div>
       </div>
 
@@ -261,7 +262,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                       }`}
                     >
                       {tx.type === "income" ? "+" : tx.type === "expense" ? "-" : ""}
-                      {formatCurrency(tx.amount, "USD", currencySymbol)}
+                      {formatCurrency(tx.amount, currency, currencySymbol)}
                     </p>
                     <span className="text-[10px] uppercase font-bold text-zinc-400">
                       {tx.type}
@@ -307,7 +308,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-bold font-mono text-zinc-100">
-                        {formatCurrency(bill.amount, "USD", currencySymbol)}
+                        {formatCurrency(bill.amount, currency, currencySymbol)}
                       </p>
                       <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
                         {bill.frequency}
