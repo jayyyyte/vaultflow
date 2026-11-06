@@ -31,6 +31,7 @@ export interface DashboardSummary {
   monthlySavings: number;
   savingsRate: number;
   currencySymbol: string;
+  currency?: string;
 }
 
 export interface MonthlyCashFlowPoint {
