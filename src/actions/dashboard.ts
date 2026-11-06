@@ -31,7 +31,9 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
   // 2. Settings (currency symbol)
   const appSettings = await db.select().from(settings);
   const symbolSetting = appSettings.find((s) => s.key === "currency_symbol");
+  const currencySetting = appSettings.find((s) => s.key === "currency");
   const currencySymbol = symbolSetting ? symbolSetting.value : "$";
+  const currency = currencySetting ? currencySetting.value : "USD";
 
   // 3. Transactions for the selected month
   const currentMonthTx = await db
@@ -63,6 +65,7 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     monthlySavings,
     savingsRate,
     currencySymbol,
+    currency,
   };
 
   // 4. Past 6 months cash flow trend for Recharts

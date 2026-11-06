@@ -135,6 +135,56 @@ export async function createTransaction(data: {
   }
 }
 
+export async function updateTransaction(
+  id: string,
+  data: {
+    amount: number;
+    type: "income" | "expense" | "transfer";
+    walletId: string;
+    categoryId?: string;
+    destinationWalletId?: string;
+    date: string;
+    note?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!data.amount || data.amount <= 0) {
+      return { success: false, error: "Số tiền phải lớn hơn 0" };
+    }
+    if (!data.walletId) {
+      return { success: false, error: "Vui lòng chọn ví" };
+    }
+    if (data.type === "transfer" && !data.destinationWalletId) {
+      return { success: false, error: "Cần chọn ví đích cho giao dịch chuyển tiền" };
+    }
+    if (data.type === "transfer" && data.walletId === data.destinationWalletId) {
+      return { success: false, error: "Ví nguồn và ví đích không được trùng nhau" };
+    }
+
+    await db
+      .update(transactions)
+      .set({
+        amount: data.amount,
+        type: data.type,
+        walletId: data.walletId,
+        categoryId: data.type === "transfer" ? null : data.categoryId || null,
+        destinationWalletId: data.type === "transfer" ? data.destinationWalletId : null,
+        date: data.date,
+        note: data.note?.trim() || null,
+      })
+      .where(eq(transactions.id, id));
+
+    revalidatePath("/");
+    revalidatePath("/transactions");
+    revalidatePath("/wallets");
+    revalidatePath("/budgets");
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to update transaction" };
+  }
+}
+
 export async function deleteTransaction(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     await db.delete(transactions).where(eq(transactions.id, id));
