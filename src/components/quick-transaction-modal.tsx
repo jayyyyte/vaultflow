@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createTransaction, updateTransaction, deleteTransaction } from "@/actions/transactions";
+import { seedDefaultCategoriesAndWallets } from "@/actions/categories";
+import { CategoryModal } from "./category-modal";
 import { DynamicIcon } from "./icon-helper";
 import { formatCurrency } from "@/lib/utils";
 import type { WalletWithBalance, TransactionWithDetails } from "@/lib/types";
@@ -19,6 +22,11 @@ import {
   Loader2,
   Trash2,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Sparkles,
+  Tag,
 } from "lucide-react";
 
 interface QuickTransactionModalProps {
@@ -49,6 +57,7 @@ export function QuickTransactionModal({
   onDeleteSuccess,
 }: QuickTransactionModalProps) {
   const isEditing = !!transactionToEdit;
+  const router = useRouter();
 
   const [type, setType] = useState<"expense" | "income" | "transfer">(
     transactionToEdit?.type || defaultType
@@ -72,6 +81,17 @@ export function QuickTransactionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Category Dropdown & Quick-Add States
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
 
   const isVnd =
     currency?.toUpperCase() === "VND" ||
@@ -111,16 +131,38 @@ export function QuickTransactionModal({
   // Set default category when type changes (in create mode)
   useEffect(() => {
     if (!isEditing && type !== "transfer") {
-      const availableCategories = categories.filter((c) => c.type === type);
+      const availableCategories = localCategories.filter((c) => c.type === type);
       if (availableCategories.length > 0 && !availableCategories.some((c) => c.id === selectedCategoryId)) {
         setSelectedCategoryId(availableCategories[0].id);
       }
     }
-  }, [type, categories, isEditing, selectedCategoryId]);
+  }, [type, localCategories, isEditing, selectedCategoryId]);
 
   if (!isOpen) return null;
 
-  const filteredCategories = categories.filter((c) => c.type === type);
+  const filteredCategories = localCategories.filter((c) => c.type === type);
+  const searchedCategories = filteredCategories.filter((c) =>
+    c.name.toLowerCase().includes(categorySearch.toLowerCase().trim())
+  );
+  const selectedCategory = localCategories.find((c) => c.id === selectedCategoryId);
+
+  const handleCategoryCreated = (newCat: Category) => {
+    setLocalCategories((prev) => [newCat, ...prev.filter((c) => c.id !== newCat.id)]);
+    setSelectedCategoryId(newCat.id);
+    setIsCategoryDropdownOpen(false);
+    onSuccess?.();
+  };
+
+  const handleSeedData = async () => {
+    setIsSeeding(true);
+    try {
+      await seedDefaultCategoriesAndWallets();
+      router.refresh();
+      onSuccess?.();
+    } finally {
+      setIsSeeding(false);
+    }
+  };
 
   const handleAddIncrement = (inc: number) => {
     const current = parseFloat(amountStr) || 0;
@@ -353,35 +395,170 @@ export function QuickTransactionModal({
             </div>
           </div>
 
-          {/* 3. Category Picker (for Income & Expense) */}
+          {/* 3. Category Picker Dropdown (for Income & Expense) */}
           {type !== "transfer" && (
-            <div>
-              <label className="text-xs font-semibold text-zinc-300 block mb-2">Danh mục</label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1">
-                {filteredCategories.map((cat) => {
-                  const isSelected = selectedCategoryId === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategoryId(cat.id)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all ${
-                        isSelected
-                          ? "border-emerald-500 bg-emerald-500/10 text-white shadow-sm ring-1 ring-emerald-500/40"
-                          : "border-zinc-800/80 bg-zinc-900/50 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
-                      }`}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center mb-1"
-                        style={{ backgroundColor: `${cat.color}25`, color: cat.color }}
-                      >
-                        <DynamicIcon name={cat.icon} className="w-4 h-4" />
-                      </div>
-                      <span className="text-[11px] font-medium truncate w-full">{cat.name}</span>
-                    </button>
-                  );
-                })}
+            <div className="relative">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-zinc-300">Danh mục</label>
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(true)}
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>Tự thêm danh mục</span>
+                </button>
               </div>
+
+              {/* Dropdown Select Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
+                className={`w-full min-h-[48px] px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 text-left transition-all ${
+                  isCategoryDropdownOpen
+                    ? "border-emerald-500 bg-zinc-900 ring-1 ring-emerald-500/40 text-white"
+                    : "border-zinc-800/80 bg-zinc-900/60 text-zinc-200 hover:border-zinc-700"
+                }`}
+              >
+                {selectedCategory ? (
+                  <div className="flex items-center gap-2.5 truncate">
+                    <div
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                      style={{
+                        backgroundColor: `${selectedCategory.color}25`,
+                        color: selectedCategory.color,
+                      }}
+                    >
+                      <DynamicIcon name={selectedCategory.icon} className="w-4 h-4" />
+                    </div>
+                    <div className="truncate">
+                      <span className="text-sm font-semibold text-white truncate block">
+                        {selectedCategory.name}
+                      </span>
+                      {selectedCategory.monthlyBudget && selectedCategory.monthlyBudget > 0 ? (
+                        <span className="text-[10px] text-zinc-400 font-mono">
+                          Hạn mức: {formatCurrency(selectedCategory.monthlyBudget, currency, currencySymbol)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-zinc-400 text-sm">
+                    <Tag className="w-4 h-4 text-zinc-500" />
+                    <span>
+                      {filteredCategories.length === 0
+                        ? "Chưa có danh mục (Bấm để thêm mới)"
+                        : "Chọn danh mục..."}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1.5 shrink-0 text-zinc-400">
+                  {isCategoryDropdownOpen ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </div>
+              </button>
+
+              {/* Dropdown Menu Popup */}
+              {isCategoryDropdownOpen && (
+                <div className="mt-1.5 w-full bg-[#18181b] border border-zinc-700/80 rounded-2xl shadow-2xl p-2.5 space-y-2 animate-fadeIn z-20">
+                  {/* Search box & Add button */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type="text"
+                        placeholder="Tìm danh mục..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="w-full h-9 pl-8 pr-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCategoryDropdownOpen(false);
+                        setIsCategoryModalOpen(true);
+                      }}
+                      className="h-9 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1 shrink-0 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm</span>
+                    </button>
+                  </div>
+
+                  {/* Categories List */}
+                  <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                    {searchedCategories.length === 0 ? (
+                      <div className="py-4 text-center space-y-2">
+                        <p className="text-xs text-zinc-400">
+                          {filteredCategories.length === 0
+                            ? "Chưa có danh mục nào"
+                            : "Không tìm thấy danh mục phù hợp"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCategoryDropdownOpen(false);
+                            setIsCategoryModalOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 text-zinc-950 font-bold text-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                          Tạo danh mục mới
+                        </button>
+                      </div>
+                    ) : (
+                      searchedCategories.map((cat) => {
+                        const isSelected = selectedCategoryId === cat.id;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategoryId(cat.id);
+                              setIsCategoryDropdownOpen(false);
+                            }}
+                            className={`w-full min-h-[44px] px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-left transition-all ${
+                              isSelected
+                                ? "bg-emerald-500/15 border border-emerald-500/40 text-white"
+                                : "hover:bg-zinc-800/80 text-zinc-300 border border-transparent"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <div
+                                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                                style={{
+                                  backgroundColor: `${cat.color}25`,
+                                  color: cat.color,
+                                }}
+                              >
+                                <DynamicIcon name={cat.icon} className="w-4 h-4" />
+                              </div>
+                              <div className="truncate">
+                                <span className="text-xs font-medium truncate block">{cat.name}</span>
+                                {cat.monthlyBudget && cat.monthlyBudget > 0 ? (
+                                  <span className="text-[10px] text-zinc-400 font-mono">
+                                    Hạn mức: {formatCurrency(cat.monthlyBudget, currency, currencySymbol)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            {isSelected && (
+                              <Check className="w-4 h-4 text-emerald-400 stroke-[3] shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -390,36 +567,56 @@ export function QuickTransactionModal({
             <label className="text-xs font-semibold text-zinc-300 block mb-2">
               {type === "transfer" ? "Từ ví (Nguồn)" : "Tài khoản / Ví"}
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {wallets.map((w) => {
-                const isSelected = selectedWalletId === w.id;
-                return (
+            {wallets.length === 0 ? (
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-dashed border-amber-500/30 text-center space-y-2">
+                <p className="text-xs text-amber-300 font-medium">⚠️ Chưa có tài khoản hoặc ví nào</p>
+                <p className="text-[11px] text-zinc-400">
+                  Bạn cần có ít nhất 1 ví để ghi nhận giao dịch.
+                </p>
+                <div className="flex items-center justify-center gap-2 pt-1">
                   <button
-                    key={w.id}
                     type="button"
-                    onClick={() => setSelectedWalletId(w.id)}
-                    className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? "border-emerald-500 bg-emerald-500/10 text-white ring-1 ring-emerald-500/40"
-                        : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700"
-                    }`}
+                    onClick={handleSeedData}
+                    disabled={isSeeding}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-semibold border border-emerald-500/30 transition-colors"
                   >
-                    <div
-                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: `${w.color}25`, color: w.color }}
-                    >
-                      <DynamicIcon name={w.icon} className="w-4 h-4" />
-                    </div>
-                    <div className="truncate min-w-0">
-                      <p className="text-xs font-medium text-zinc-200 truncate">{w.name}</p>
-                      <p className="text-[10px] text-zinc-400 font-mono">
-                        {formatCurrency(w.currentBalance, w.currency, currencySymbol)}
-                      </p>
-                    </div>
+                    {isSeeding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    <span>⚡ Nạp dữ liệu ví & danh mục mẫu</span>
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {wallets.map((w) => {
+                  const isSelected = selectedWalletId === w.id;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => setSelectedWalletId(w.id)}
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-500/10 text-white ring-1 ring-emerald-500/40"
+                          : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700"
+                      }`}
+                    >
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `${w.color}25`, color: w.color }}
+                      >
+                        <DynamicIcon name={w.icon} className="w-4 h-4" />
+                      </div>
+                      <div className="truncate min-w-0">
+                        <p className="text-xs font-medium text-zinc-200 truncate">{w.name}</p>
+                        <p className="text-[10px] text-zinc-400 font-mono">
+                          {formatCurrency(w.currentBalance, w.currency, currencySymbol)}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Destination Wallet for Transfer */}
@@ -570,6 +767,15 @@ export function QuickTransactionModal({
           </div>
         </form>
       </div>
+
+      {/* Inline Quick Category Creator Modal */}
+      <CategoryModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        defaultType={type === "transfer" ? "expense" : type}
+        currencySymbol={currencySymbol}
+        onSuccess={handleCategoryCreated}
+      />
     </div>
   );
 }
