@@ -89,12 +89,12 @@ export function AppNav({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#09090b] text-zinc-100 pb-20 md:pb-6">
-      {/* Top Header Navigation */}
-      <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-[#09090b]/85 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#09090b] text-zinc-100 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
+      {/* Top Header Navigation with iOS Safe Area Inset Support */}
+      <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-[#09090b]/95 backdrop-blur-md safe-top">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           {/* Logo & Brand */}
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href="/" prefetch={true} className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-zinc-950 font-black shadow-md shadow-emerald-950/40 group-hover:scale-105 transition-transform">
               <CircleDollarSign className="w-5 h-5 text-zinc-950" />
             </div>
@@ -116,6 +116,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
                     isActive
                       ? "bg-zinc-800 text-white shadow-sm"
@@ -146,11 +147,12 @@ export function AppNav({ children }: { children: React.ReactNode }) {
             {/* Mobile Settings Shortcut (Header) */}
             <Link
               href="/settings"
+              prefetch={true}
               title="Cài đặt (Settings)"
-              className={`md:hidden w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${
+              className={`md:hidden w-9 h-9 rounded-xl border flex items-center justify-center transition-colors active:scale-95 ${
                 pathname === "/settings"
                   ? "bg-zinc-800 border-zinc-700 text-emerald-400"
-                  : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-100"
+                  : "bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-100"
               }`}
             >
               <Settings className="w-4 h-4" />
@@ -160,7 +162,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
             <button
               onClick={handleLogout}
               title="Khóa Vault (Lock)"
-              className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 flex items-center justify-center transition-colors"
+              className="w-9 h-9 rounded-xl bg-zinc-900/90 border border-zinc-800 hover:bg-zinc-800 active:scale-95 text-zinc-400 hover:text-rose-400 flex items-center justify-center transition-colors"
             >
               <Lock className="w-4 h-4" />
             </button>
@@ -169,15 +171,16 @@ export function AppNav({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Page Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 animate-fadeIn">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-fadeIn">
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (iOS / Android One-Thumb Optimized) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f0f12]/95 backdrop-blur-lg border-t border-zinc-800/80 px-2 pb-[env(safe-area-inset-bottom)]">
+      {/* Mobile Bottom Navigation Bar (iOS / Android One-Thumb Optimized with Safe Area Bottom) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f0f12]/95 backdrop-blur-lg border-t border-zinc-800/80 px-2 pb-[env(safe-area-inset-bottom,0px)]">
         <div className="flex items-center justify-around h-16">
           <Link
             href="/"
+            prefetch={true}
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
               pathname === "/" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
@@ -188,6 +191,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
 
           <Link
             href="/transactions"
+            prefetch={true}
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
               pathname === "/transactions" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
@@ -213,6 +217,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
 
           <Link
             href="/wallets"
+            prefetch={true}
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
               pathname === "/wallets" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}
@@ -223,6 +228,7 @@ export function AppNav({ children }: { children: React.ReactNode }) {
 
           <Link
             href="/budgets"
+            prefetch={true}
             className={`flex flex-col items-center justify-center w-14 py-1 transition-colors ${
               pathname === "/budgets" ? "text-emerald-400 font-semibold" : "text-zinc-400 hover:text-zinc-200"
             }`}

@@ -10,9 +10,42 @@ import { getRecurringBills } from "./recurring";
 import type { DashboardSummary, MonthlyCashFlowPoint, CategorySpendingPoint } from "@/lib/types";
 
 export async function getDashboardData(month: string = getCurrentYearMonth()) {
-  // 1. Wallets
-  const walletList = await getWalletsWithBalances();
+  const [currYear, currMonth] = month.split("-").map(Number);
 
+  // Calculate boundary for 6 months history (e.g. 2026-05-01)
+  const oldestDate = new Date(currYear, currMonth - 6, 1);
+  const oldestY = oldestDate.getFullYear();
+  const oldestM = String(oldestDate.getMonth() + 1).padStart(2, "0");
+  const sixMonthsAgoKey = `${oldestY}-${oldestM}-01`;
+
+  // ⚡ Run all queries in ONE parallel batch via Promise.all.
+  // Replaces the 14-serial-query waterfall with a single parallel fetch.
+  const [
+    walletList,
+    appSettings,
+    allCategories,
+    recentTransactions,
+    recurring,
+    rangeTx,
+  ] = await Promise.all([
+    getWalletsWithBalances(),
+    db.select().from(settings),
+    db.select().from(categories),
+    getTransactions({ limit: 8 }),
+    getRecurringBills(),
+    db
+      .select({
+        id: transactions.id,
+        amount: transactions.amount,
+        type: transactions.type,
+        categoryId: transactions.categoryId,
+        date: transactions.date,
+      })
+      .from(transactions)
+      .where(sql`${transactions.date} >= ${sixMonthsAgoKey}`),
+  ]);
+
+  // 1. Wallets calculations
   let liquidAssets = 0;
   let creditDebt = 0;
 
@@ -28,23 +61,14 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
 
   const netWorth = liquidAssets - creditDebt;
 
-  // 2. Settings (currency symbol)
-  const appSettings = await db.select().from(settings);
+  // 2. Settings (currency symbol & code)
   const symbolSetting = appSettings.find((s) => s.key === "currency_symbol");
   const currencySetting = appSettings.find((s) => s.key === "currency");
   const currencySymbol = symbolSetting ? symbolSetting.value : "$";
   const currency = currencySetting ? currencySetting.value : "USD";
 
-  // 3. Transactions for the selected month
-  const currentMonthTx = await db
-    .select({
-      id: transactions.id,
-      amount: transactions.amount,
-      type: transactions.type,
-      categoryId: transactions.categoryId,
-    })
-    .from(transactions)
-    .where(like(transactions.date, `${month}%`));
+  // 3. Transactions for the selected month (filtered in-memory in microseconds)
+  const currentMonthTx = rangeTx.filter((t) => t.date.startsWith(month));
 
   let monthlyIncome = 0;
   let monthlyExpense = 0;
@@ -68,9 +92,8 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     currency,
   };
 
-  // 4. Past 6 months cash flow trend for Recharts
+  // 4. Past 6 months cash flow trend for Recharts (computed in-memory from rangeTx)
   const cashFlowHistory: MonthlyCashFlowPoint[] = [];
-  const [currYear, currMonth] = month.split("-").map(Number);
 
   for (let i = 5; i >= 0; i--) {
     const targetDate = new Date(currYear, currMonth - 1 - i, 1);
@@ -79,19 +102,13 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     const ymKey = `${y}-${m}`;
     const monthLabel = targetDate.toLocaleDateString("en-US", { month: "short" });
 
-    const monthRows = await db
-      .select({
-        amount: transactions.amount,
-        type: transactions.type,
-      })
-      .from(transactions)
-      .where(like(transactions.date, `${ymKey}%`));
-
     let inc = 0;
     let exp = 0;
-    for (const r of monthRows) {
-      if (r.type === "income") inc += r.amount;
-      if (r.type === "expense") exp += r.amount;
+    for (const r of rangeTx) {
+      if (r.date.startsWith(ymKey)) {
+        if (r.type === "income") inc += r.amount;
+        if (r.type === "expense") exp += r.amount;
+      }
     }
 
     cashFlowHistory.push({
@@ -103,7 +120,6 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
   }
 
   // 5. Category Spending Breakdown for Donut Chart
-  const allCategories = await db.select().from(categories);
   const catMap = new Map(allCategories.map((c) => [c.id, c]));
 
   const categorySpendingMap = new Map<string, number>();
@@ -128,12 +144,6 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     }
   }
   categoryBreakdown.sort((a, b) => b.amount - a.amount);
-
-  // 6. Recent transactions (latest 8)
-  const recentTransactions = await getTransactions({ limit: 8 });
-
-  // 7. Upcoming recurring bills
-  const recurring = await getRecurringBills();
 
   return {
     summary,
