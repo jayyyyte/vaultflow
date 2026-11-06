@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createWallet, updateWallet } from "@/actions/wallets";
-import { DynamicIcon, AVAILABLE_ICONS } from "./icon-helper";
+import { DynamicIcon, WALLET_ICONS } from "./icon-helper";
 import { X, Check, Loader2 } from "lucide-react";
 import type { WalletWithBalance } from "@/lib/types";
 
@@ -24,8 +24,6 @@ const PRESET_COLORS = [
   "#f43f5e", // Rose
   "#64748b", // Slate
 ];
-
-const PRESET_ICONS = ["Wallet", "Building2", "Banknote", "Smartphone", "CreditCard", "Briefcase", "Laptop", "PiggyBank"];
 
 export function WalletModal({ isOpen, onClose, walletToEdit, currencySymbol = "$" }: WalletModalProps) {
   const router = useRouter();
@@ -214,20 +212,26 @@ export function WalletModal({ isOpen, onClose, walletToEdit, currencySymbol = "$
 
           {/* Icon Selection */}
           <div>
-            <label className="text-xs font-semibold text-zinc-300 block mb-1.5">Icon</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {PRESET_ICONS.map((i) => (
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-zinc-300">Biểu tượng ví</label>
+              <span className="text-[11px] text-zinc-400 font-medium">
+                {icon}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+              {WALLET_ICONS.map((i) => (
                 <button
                   key={i}
                   type="button"
+                  title={i}
                   onClick={() => setIcon(i)}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                  className={`h-11 min-w-[44px] rounded-xl flex items-center justify-center transition-all ${
                     icon === i
-                      ? "bg-zinc-800 text-emerald-400 border border-emerald-500/50"
-                      : "bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800"
+                      ? "bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500 shadow-sm"
+                      : "bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800 active:scale-95"
                   }`}
                 >
-                  <DynamicIcon name={i} className="w-4 h-4" />
+                  <DynamicIcon name={i} className="w-5 h-5" />
                 </button>
               ))}
             </div>

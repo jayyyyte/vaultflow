@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createCategory, updateCategory, deleteCategory } from "@/actions/categories";
-import { DynamicIcon } from "./icon-helper";
-import { X, Check, Trash2, Loader2, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { DynamicIcon, ICON_CATEGORIES, ICON_DEFINITIONS, type IconDefinition } from "./icon-helper";
+import { X, Check, Trash2, Loader2, Plus, TrendingDown, TrendingUp, Search } from "lucide-react";
 import type { Category } from "@/db/schema";
 
 interface CategoryModalProps {
@@ -30,25 +30,6 @@ const PRESET_COLORS = [
   "#64748b", // Slate
 ];
 
-const PRESET_ICONS = [
-  "Coffee",
-  "ShoppingCart",
-  "ShoppingBag",
-  "Home",
-  "Zap",
-  "Car",
-  "Film",
-  "HeartPulse",
-  "Plane",
-  "Gift",
-  "Briefcase",
-  "Laptop",
-  "Banknote",
-  "Wallet",
-  "Tag",
-  "CreditCard",
-];
-
 export function CategoryModal({
   isOpen,
   onClose,
@@ -71,6 +52,8 @@ export function CategoryModal({
   const [monthlyBudget, setMonthlyBudget] = useState<string>(
     categoryToEdit?.monthlyBudget ? String(categoryToEdit.monthlyBudget) : ""
   );
+  const [selectedIconCategory, setSelectedIconCategory] = useState<string>("all");
+  const [iconSearchQuery, setIconSearchQuery] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,6 +61,8 @@ export function CategoryModal({
   useEffect(() => {
     if (isOpen) {
       setErrorMessage(null);
+      setSelectedIconCategory("all");
+      setIconSearchQuery("");
       if (categoryToEdit) {
         setName(categoryToEdit.name);
         setType(categoryToEdit.type);
@@ -95,6 +80,24 @@ export function CategoryModal({
       }
     }
   }, [isOpen, categoryToEdit, defaultType]);
+
+  const filteredIcons = useMemo(() => {
+    const query = iconSearchQuery.trim().toLowerCase();
+    return ICON_DEFINITIONS.filter((def) => {
+      if (selectedIconCategory !== "all" && def.category !== selectedIconCategory) {
+        return false;
+      }
+      if (!query) return true;
+      if (def.name.toLowerCase().includes(query)) return true;
+      if (def.labelVi.toLowerCase().includes(query)) return true;
+      if (def.labelEn.toLowerCase().includes(query)) return true;
+      return def.keywords.some((k) => k.toLowerCase().includes(query));
+    });
+  }, [selectedIconCategory, iconSearchQuery]);
+
+  const currentIconDef = useMemo(() => {
+    return ICON_DEFINITIONS.find((def) => def.name === icon);
+  }, [icon]);
 
   if (!isOpen) return null;
 
@@ -322,26 +325,94 @@ export function CategoryModal({
           </div>
 
           {/* Icon Picker */}
-          <div>
-            <label className="text-xs font-semibold text-zinc-300 block mb-1.5">Biểu tượng</label>
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 max-h-36 overflow-y-auto p-1 bg-zinc-900/40 rounded-xl border border-zinc-800/60">
-              {PRESET_ICONS.map((iconName) => {
-                const isSelected = icon === iconName;
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-zinc-300">Biểu tượng</label>
+              {currentIconDef && (
+                <span className="text-[11px] text-zinc-400">
+                  Đã chọn: <span className="text-emerald-400 font-semibold">{currentIconDef.labelVi}</span>
+                </span>
+              )}
+            </div>
+
+            {/* Icon Search */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
+              <input
+                type="text"
+                value={iconSearchQuery}
+                onChange={(e) => setIconSearchQuery(e.target.value)}
+                placeholder="Tìm biểu tượng (vd: cafe, gym, shopee, tiền, xe, mèo...)"
+                className="w-full h-9 pl-8 pr-7 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-emerald-500 focus:outline-none text-xs text-white placeholder-zinc-600 transition-colors"
+              />
+              {iconSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setIconSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 text-[11px] no-scrollbar">
+              {ICON_CATEGORIES.map((cat) => {
+                const isActive = selectedIconCategory === cat.id;
                 return (
                   <button
-                    key={iconName}
+                    key={cat.id}
                     type="button"
-                    onClick={() => setIcon(iconName)}
-                    className={`h-11 rounded-xl flex items-center justify-center transition-all ${
-                      isSelected
-                        ? "bg-zinc-800 border-2 border-emerald-500 text-emerald-400 shadow-sm"
-                        : "bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                    onClick={() => setSelectedIconCategory(cat.id)}
+                    className={`px-2.5 py-1 rounded-lg shrink-0 font-medium transition-all ${
+                      isActive
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                        : "bg-zinc-900/80 text-zinc-400 hover:text-zinc-200 border border-zinc-800"
                     }`}
                   >
-                    <DynamicIcon name={iconName} className="w-5 h-5" />
+                    {cat.label}
                   </button>
                 );
               })}
+            </div>
+
+            {/* Icons Grid */}
+            <div className="grid grid-cols-6 sm:grid-cols-8 gap-2 max-h-44 overflow-y-auto p-1.5 bg-zinc-900/40 rounded-xl border border-zinc-800/60">
+              {filteredIcons.length > 0 ? (
+                filteredIcons.map((item) => {
+                  const isSelected = icon === item.name;
+                  return (
+                    <button
+                      key={item.name}
+                      type="button"
+                      title={`${item.labelVi} (${item.labelEn})`}
+                      onClick={() => setIcon(item.name)}
+                      className={`h-11 min-w-[44px] rounded-xl flex items-center justify-center transition-all ${
+                        isSelected
+                          ? "bg-emerald-500/20 border-2 border-emerald-500 text-emerald-400 shadow-sm"
+                          : "bg-zinc-900/80 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 active:scale-95"
+                      }`}
+                    >
+                      <DynamicIcon name={item.name} className="w-5 h-5" />
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="col-span-full py-6 text-center text-xs text-zinc-500">
+                  <p>Không tìm thấy biểu tượng phù hợp</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIconSearchQuery("");
+                      setSelectedIconCategory("all");
+                    }}
+                    className="mt-1 text-emerald-400 hover:underline"
+                  >
+                    Xem tất cả biểu tượng
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
