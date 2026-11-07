@@ -5,7 +5,12 @@ import { categories, transactions, wallets } from "@/db/schema";
 import { eq, and, like, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getCurrentYearMonth } from "@/lib/utils";
-import type { CategoryWithSpending, CategoryAnalytics, CategoryAnalyticsItem } from "@/lib/types";
+import type {
+  CategoryWithSpending,
+  CategoryAnalytics,
+  CategoryAnalyticsItem,
+  NeedsWantsReport,
+} from "@/lib/types";
 import type { Category } from "@/db/schema";
 
 export async function getCategories(): Promise<Category[]> {
@@ -84,6 +89,7 @@ export async function createCategory(data: {
   icon?: string;
   color?: string;
   monthlyBudget?: number;
+  classification?: "needs" | "wants" | "savings";
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     if (!data.name || data.name.trim() === "") {
@@ -99,6 +105,7 @@ export async function createCategory(data: {
       icon: data.icon || "Tag",
       color: data.color || (data.type === "income" ? "#10b981" : "#f43f5e"),
       monthlyBudget: data.monthlyBudget || 0,
+      classification: data.classification || "needs",
     });
 
     revalidatePath("/");
@@ -134,6 +141,7 @@ export async function updateCategory(
     icon?: string;
     color?: string;
     monthlyBudget?: number;
+    classification?: "needs" | "wants" | "savings";
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -143,6 +151,7 @@ export async function updateCategory(
     if (data.icon !== undefined) updatePayload.icon = data.icon;
     if (data.color !== undefined) updatePayload.color = data.color;
     if (data.monthlyBudget !== undefined) updatePayload.monthlyBudget = Math.max(0, data.monthlyBudget);
+    if (data.classification !== undefined) updatePayload.classification = data.classification;
 
     await db.update(categories).set(updatePayload).where(eq(categories.id, id));
 
@@ -280,6 +289,7 @@ export async function getCategoryAnalytics(
         icon: c.icon,
         color: c.color,
         monthlyBudget: budget,
+        classification: (c.classification as any) || "needs",
         currentAmount: cur.total,
         previousAmount: prev.total,
         momGrowth,
@@ -354,6 +364,150 @@ export async function getCategoryAnalytics(
   };
 }
 
+export async function getNeedsWantsAnalysis(
+  month: string = getCurrentYearMonth()
+): Promise<NeedsWantsReport> {
+  const [allCategories, monthTransactions] = await Promise.all([
+    db.select().from(categories),
+    db
+      .select({
+        categoryId: transactions.categoryId,
+        type: transactions.type,
+        amount: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+      })
+      .from(transactions)
+      .where(like(transactions.date, `${month}%`))
+      .groupBy(transactions.categoryId, transactions.type),
+  ]);
+
+  const catMap = new Map(allCategories.map((c) => [c.id, c]));
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let totalNeeds = 0;
+  let totalWants = 0;
+  let totalSavingsExpense = 0;
+
+  const needsCats: Array<{ id: string; name: string; amount: number; color: string; icon: string; share: number }> = [];
+  const wantsCats: Array<{ id: string; name: string; amount: number; color: string; icon: string; share: number }> = [];
+  const savingsCats: Array<{ id: string; name: string; amount: number; color: string; icon: string; share: number }> = [];
+
+  for (const row of monthTransactions) {
+    const amt = Number(row.amount) || 0;
+    if (row.type === "income") {
+      totalIncome += amt;
+    } else if (row.type === "expense") {
+      totalExpense += amt;
+      const cat = row.categoryId ? catMap.get(row.categoryId) : undefined;
+      const classification = cat?.classification || "needs";
+      const item = {
+        id: cat?.id || "uncategorized",
+        name: cat?.name || "Chưa phân loại",
+        amount: amt,
+        color: cat?.color || "#71717a",
+        icon: cat?.icon || "Tag",
+        share: 0,
+      };
+
+      if (classification === "needs") {
+        totalNeeds += amt;
+        needsCats.push(item);
+      } else if (classification === "wants") {
+        totalWants += amt;
+        wantsCats.push(item);
+      } else if (classification === "savings") {
+        totalSavingsExpense += amt;
+        savingsCats.push(item);
+      }
+    }
+  }
+
+  // Calculate shares within each bucket
+  needsCats.forEach((c) => { c.share = totalNeeds > 0 ? (c.amount / totalNeeds) * 100 : 0; });
+  needsCats.sort((a, b) => b.amount - a.amount);
+
+  wantsCats.forEach((c) => { c.share = totalWants > 0 ? (c.amount / totalWants) * 100 : 0; });
+  wantsCats.sort((a, b) => b.amount - a.amount);
+
+  savingsCats.forEach((c) => { c.share = totalSavingsExpense > 0 ? (c.amount / totalSavingsExpense) * 100 : 0; });
+  savingsCats.sort((a, b) => b.amount - a.amount);
+
+  // Net Savings calculation (Cash flow surplus + category savings)
+  const netCashFlow = Math.max(0, totalIncome - totalExpense);
+  const totalSavings = netCashFlow + totalSavingsExpense;
+
+  const baseDenominator = totalIncome > 0 ? totalIncome : totalExpense > 0 ? totalExpense : 1;
+  const needsPercent = (totalNeeds / baseDenominator) * 100;
+  const wantsPercent = (totalWants / baseDenominator) * 100;
+  const savingsPercent = totalIncome > 0 ? (totalSavings / totalIncome) * 100 : 0;
+
+  // 50/30/20 Financial Health Score (0-100)
+  let score = 100;
+  if (needsPercent > 50) score -= Math.min(35, (needsPercent - 50) * 1.5);
+  if (wantsPercent > 30) score -= Math.min(35, (wantsPercent - 30) * 1.5);
+  if (totalIncome > 0 && savingsPercent < 20) score -= Math.min(30, (20 - savingsPercent) * 1.5);
+  score = Math.max(10, Math.min(100, Math.round(score)));
+
+  let assessmentStatus: "excellent" | "good" | "warning" | "danger" = "good";
+  let title = "Cơ cấu chi tiêu ổn định";
+  let description = "Chi tiêu thiết yếu và hưởng thụ đang ở mức kiểm soát được. Hãy tiếp tục duy trì tỷ lệ tích lũy hàng tháng.";
+
+  if (score >= 85) {
+    assessmentStatus = "excellent";
+    title = "Cơ cấu tài chính rất xuất sắc!";
+    description = "Bạn đang tuân thủ quy tắc 50/30/20 cực kỳ chuẩn xác. Tỷ lệ tiết kiệm và đầu tư trên 20% giúp tích lũy tài sản vững chắc.";
+  } else if (score >= 70) {
+    assessmentStatus = "good";
+    title = "Cơ cấu tài chính khá tốt";
+    description = "Chi tiêu trong tầm kiểm soát. Bạn có thể tối ưu thêm một vài chi phí hưởng thụ để tăng tỷ lệ tiết kiệm lên mức 20%.";
+  } else if (score >= 50) {
+    assessmentStatus = "warning";
+    title = "Cần chú ý chi tiêu hưởng thụ hoặc chi phí cố định";
+    description = wantsPercent > 35
+      ? "Khoản chi hưởng thụ đang chiếm hơn 35% ngân sách. Cân nhắc xem xét lại ăn ngoài, mua sắm hoặc giải trí."
+      : "Chi phí thiết yếu đang chiếm tỷ trọng khá cao so với thu nhập. Hãy rà soát các hóa đơn định kỳ để tiết kiệm thêm.";
+  } else {
+    assessmentStatus = "danger";
+    title = "Cảnh báo thâm hụt ngân sách!";
+    description = "Tổng chi tiêu đang vượt quá hoặc xấp xỉ toàn bộ thu nhập. Cần rà soát và cắt giảm ngay các khoản không thiết yếu.";
+  }
+
+  return {
+    month,
+    totalIncome,
+    totalExpense,
+    needs: {
+      total: totalNeeds,
+      percentOfIncome: totalIncome > 0 ? (totalNeeds / totalIncome) * 100 : 0,
+      percentOfExpense: totalExpense > 0 ? (totalNeeds / totalExpense) * 100 : 0,
+      targetPercent: 50,
+      delta: needsPercent - 50,
+      categories: needsCats,
+    },
+    wants: {
+      total: totalWants,
+      percentOfIncome: totalIncome > 0 ? (totalWants / totalIncome) * 100 : 0,
+      percentOfExpense: totalExpense > 0 ? (totalWants / totalExpense) * 100 : 0,
+      targetPercent: 30,
+      delta: wantsPercent - 30,
+      categories: wantsCats,
+    },
+    savings: {
+      total: totalSavings,
+      percentOfIncome: savingsPercent,
+      targetPercent: 20,
+      delta: savingsPercent - 20,
+      categories: savingsCats,
+    },
+    healthScore: score,
+    assessment: {
+      title,
+      description,
+      status: assessmentStatus,
+    },
+  };
+}
+
 export async function seedDefaultCategoriesAndWallets(): Promise<{ success: boolean; error?: string }> {
   try {
     const existingWallets = await db.select().from(wallets);
@@ -398,16 +552,16 @@ export async function seedDefaultCategoriesAndWallets(): Promise<{ success: bool
     const existingCats = await db.select().from(categories);
     if (existingCats.length === 0) {
       await db.insert(categories).values([
-        { id: "cat_dining", name: "Ăn uống & Cà phê", type: "expense", icon: "Coffee", color: "#f97316", monthlyBudget: 3000000 },
-        { id: "cat_groceries", name: "Đi chợ & Siêu thị", type: "expense", icon: "ShoppingCart", color: "#10b981", monthlyBudget: 2500000 },
-        { id: "cat_rent", name: "Tiền nhà & Thuê phòng", type: "expense", icon: "Home", color: "#6366f1", monthlyBudget: 5000000 },
-        { id: "cat_utilities", name: "Hóa đơn & Tiện ích", type: "expense", icon: "Zap", color: "#eab308", monthlyBudget: 1000000 },
-        { id: "cat_transport", name: "Di chuyển & Xăng xe", type: "expense", icon: "Car", color: "#3b82f6", monthlyBudget: 800000 },
-        { id: "cat_shopping", name: "Mua sắm & Đồ dùng", type: "expense", icon: "ShoppingBag", color: "#ec4899", monthlyBudget: 1500000 },
-        { id: "cat_ent", name: "Giải trí & Sở thích", type: "expense", icon: "Film", color: "#a855f7", monthlyBudget: 800000 },
-        { id: "cat_health", name: "Sức khỏe & Y tế", type: "expense", icon: "HeartPulse", color: "#ef4444", monthlyBudget: 500000 },
-        { id: "cat_salary", name: "Tiền lương & Thù lao", type: "income", icon: "Briefcase", color: "#10b981", monthlyBudget: 0 },
-        { id: "cat_freelance", name: "Dự án ngoài & Thưởng", type: "income", icon: "Laptop", color: "#06b6d4", monthlyBudget: 0 },
+        { id: "cat_dining", name: "Ăn uống & Cà phê", type: "expense", icon: "Coffee", color: "#f97316", monthlyBudget: 3000000, classification: "wants" },
+        { id: "cat_groceries", name: "Đi chợ & Siêu thị", type: "expense", icon: "ShoppingCart", color: "#10b981", monthlyBudget: 2500000, classification: "needs" },
+        { id: "cat_rent", name: "Tiền nhà & Thuê phòng", type: "expense", icon: "Home", color: "#6366f1", monthlyBudget: 5000000, classification: "needs" },
+        { id: "cat_utilities", name: "Hóa đơn & Tiện ích", type: "expense", icon: "Zap", color: "#eab308", monthlyBudget: 1000000, classification: "needs" },
+        { id: "cat_transport", name: "Di chuyển & Xăng xe", type: "expense", icon: "Car", color: "#3b82f6", monthlyBudget: 800000, classification: "needs" },
+        { id: "cat_shopping", name: "Mua sắm & Đồ dùng", type: "expense", icon: "ShoppingBag", color: "#ec4899", monthlyBudget: 1500000, classification: "wants" },
+        { id: "cat_ent", name: "Giải trí & Sở thích", type: "expense", icon: "Film", color: "#a855f7", monthlyBudget: 800000, classification: "wants" },
+        { id: "cat_health", name: "Sức khỏe & Y tế", type: "expense", icon: "HeartPulse", color: "#ef4444", monthlyBudget: 500000, classification: "needs" },
+        { id: "cat_salary", name: "Tiền lương & Thù lao", type: "income", icon: "Briefcase", color: "#10b981", monthlyBudget: 0, classification: "needs" },
+        { id: "cat_freelance", name: "Dự án ngoài & Thưởng", type: "income", icon: "Laptop", color: "#06b6d4", monthlyBudget: 0, classification: "needs" },
       ]);
     }
 
