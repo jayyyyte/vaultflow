@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getCurrentYearMonth, getMonthYearLabel } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Sparkles } from "lucide-react";
 
 export function DashboardClientControls({ currentMonth }: { currentMonth: string }) {
   const router = useRouter();
@@ -48,13 +48,23 @@ export function DashboardClientControls({ currentMonth }: { currentMonth: string
         </button>
       </div>
 
+      {/* Smart Paste SMS Button */}
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent("open-smart-paste"))}
+        className="px-2.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:scale-95 text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm"
+        title="Dán nhanh tin nhắn SMS ngân hàng"
+      >
+        <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+        <span className="hidden sm:inline">Dán SMS</span>
+      </button>
+
       {/* Quick Add Button */}
       <button
         onClick={handleOpenQuickAdd}
         className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950"
       >
         <Plus className="w-4 h-4 stroke-[3]" />
-        <span>Add Transaction</span>
+        <span>Ghi chép</span>
       </button>
     </div>
   );

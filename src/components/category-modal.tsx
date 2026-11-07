@@ -54,6 +54,9 @@ export function CategoryModal({
   const [monthlyBudget, setMonthlyBudget] = useState<string>(
     categoryToEdit?.monthlyBudget ? String(categoryToEdit.monthlyBudget) : ""
   );
+  const [classification, setClassification] = useState<"needs" | "wants" | "savings">(
+    (categoryToEdit?.classification as any) || "needs"
+  );
   const [selectedIconCategory, setSelectedIconCategory] = useState<string>("all");
   const [iconSearchQuery, setIconSearchQuery] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,12 +76,14 @@ export function CategoryModal({
         setMonthlyBudget(
           categoryToEdit.monthlyBudget ? String(categoryToEdit.monthlyBudget) : ""
         );
+        setClassification((categoryToEdit.classification as any) || "needs");
       } else {
         setName("");
         setType(defaultType);
         setIcon(defaultType === "income" ? "Briefcase" : "Coffee");
         setColor(defaultType === "income" ? "#10b981" : "#f97316");
         setMonthlyBudget("");
+        setClassification("needs");
       }
     }
   }, [isOpen, categoryToEdit, defaultType]);
@@ -124,6 +129,7 @@ export function CategoryModal({
           icon,
           color,
           monthlyBudget: type === "expense" ? numericBudget : 0,
+          classification: type === "expense" ? classification : "needs",
         });
 
         if (res.success) {
@@ -135,6 +141,7 @@ export function CategoryModal({
             icon,
             color,
             monthlyBudget: type === "expense" ? numericBudget : 0,
+            classification: type === "expense" ? classification : "needs",
           };
           onSuccess?.(updated);
           router.refresh();
@@ -149,6 +156,7 @@ export function CategoryModal({
           icon,
           color,
           monthlyBudget: type === "expense" ? numericBudget : 0,
+          classification: type === "expense" ? classification : "needs",
         });
 
         if (res.success && res.id) {
@@ -160,6 +168,7 @@ export function CategoryModal({
             icon,
             color,
             monthlyBudget: type === "expense" ? numericBudget : 0,
+            classification: type === "expense" ? classification : "needs",
             createdAt: Date.now(),
           };
           onSuccess?.(newCat);
@@ -311,6 +320,56 @@ export function CategoryModal({
                 onChange={(e) => setMonthlyBudget(e.target.value)}
                 className="w-full h-11 px-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 focus:border-emerald-500 focus:outline-none text-sm text-white placeholder-zinc-600 font-mono transition-colors"
               />
+            </div>
+          )}
+
+          {/* 50/30/20 Rule Classification (for Expense) */}
+          {type === "expense" && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-zinc-300">
+                  Phân nhóm 50/30/20
+                </label>
+                <span className="text-[10px] text-zinc-400 font-mono">Quy tắc tài chính</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 bg-zinc-900/90 p-1 rounded-xl border border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setClassification("needs")}
+                  className={`py-2 px-1 text-center rounded-lg transition-all ${
+                    classification === "needs"
+                      ? "bg-blue-500/20 text-blue-300 border border-blue-500/40 shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  <span className="block text-xs font-bold">🏠 Thiết yếu</span>
+                  <span className="block text-[9px] text-zinc-400 font-mono mt-0.5">Mục tiêu 50%</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClassification("wants")}
+                  className={`py-2 px-1 text-center rounded-lg transition-all ${
+                    classification === "wants"
+                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  <span className="block text-xs font-bold">🎯 Hưởng thụ</span>
+                  <span className="block text-[9px] text-zinc-400 font-mono mt-0.5">Mục tiêu 30%</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClassification("savings")}
+                  className={`py-2 px-1 text-center rounded-lg transition-all ${
+                    classification === "savings"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  <span className="block text-xs font-bold">📈 Tích lũy</span>
+                  <span className="block text-[9px] text-zinc-400 font-mono mt-0.5">Mục tiêu 20%</span>
+                </button>
+              </div>
             </div>
           )}
 

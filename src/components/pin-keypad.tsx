@@ -3,7 +3,26 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loginWithPin, getPinLockStatus } from "@/actions/auth";
-import { ShieldCheck, Delete, ArrowRight, Lock, KeyRound, AlertCircle, Clock } from "lucide-react";
+import {
+  getBiometricStatus,
+  generateBiometricAuthOptions,
+  loginWithBiometric,
+} from "@/actions/biometric";
+import {
+  isPlatformBiometricAvailable,
+  base64UrlToBuffer,
+} from "@/lib/webauthn";
+import {
+  ShieldCheck,
+  Delete,
+  ArrowRight,
+  Lock,
+  KeyRound,
+  AlertCircle,
+  Clock,
+  Fingerprint,
+  Loader2,
+} from "lucide-react";
 
 export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
   const router = useRouter();
@@ -16,7 +35,11 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
   const [isShaking, setIsShaking] = useState(false);
   const [lockedSeconds, setLockedSeconds] = useState<number>(0);
 
-  // Check initial lock status on mount
+  // Biometric state
+  const [canUseBiometric, setCanUseBiometric] = useState(false);
+  const [isBiometricPrompting, setIsBiometricPrompting] = useState(false);
+
+  // Check initial lock status and biometric readiness on mount
   useEffect(() => {
     let isMounted = true;
     getPinLockStatus().then((res) => {
@@ -25,10 +48,84 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
         setError(`Hệ thống đang khóa tạm do nhập sai PIN quá 5 lần. Vui lòng đợi ${res.remainingSeconds}s.`);
       }
     });
+
+    // Check biometric availability
+    Promise.all([isPlatformBiometricAvailable(), getBiometricStatus()]).then(
+      ([hasPlatform, status]) => {
+        if (isMounted && hasPlatform && status.isEnabled) {
+          setCanUseBiometric(true);
+          const autoPrompt = localStorage.getItem("vf_biometric_auto");
+          if (autoPrompt === "true") {
+            // Auto prompt biometric on initial load
+            setTimeout(() => {
+              triggerBiometricLogin();
+            }, 300);
+          }
+        }
+      }
+    );
+
     return () => {
       isMounted = false;
     };
   }, []);
+
+  const triggerBiometricLogin = async () => {
+    if (isSubmitting || lockedSeconds > 0 || isBiometricPrompting) return;
+    setIsBiometricPrompting(true);
+    setError(null);
+
+    try {
+      const authOptions = await generateBiometricAuthOptions();
+      if (!authOptions.success || !authOptions.challenge) {
+        setError(authOptions.error || "Không thể khởi tạo sinh trắc học");
+        setIsBiometricPrompting(false);
+        return;
+      }
+
+      const allowCredentials: PublicKeyCredentialDescriptor[] = (
+        authOptions.allowedCredentialIds || []
+      ).map((id) => ({
+        id: base64UrlToBuffer(id),
+        type: "public-key",
+      }));
+
+      const credential = (await navigator.credentials.get({
+        publicKey: {
+          challenge: base64UrlToBuffer(authOptions.challenge),
+          rpId: authOptions.rpId,
+          allowCredentials,
+          userVerification: "required",
+          timeout: 60000,
+        },
+      })) as PublicKeyCredential | null;
+
+      if (!credential) {
+        setError("Đã hủy thao tác sinh trắc học");
+        setIsBiometricPrompting(false);
+        return;
+      }
+
+      setIsSubmitting(true);
+      const res = await loginWithBiometric({
+        credentialId: credential.id,
+      });
+
+      if (res.success) {
+        router.push(redirectPath);
+        router.refresh();
+      } else {
+        setError(res.error || "Xác thực sinh trắc học thất bại");
+      }
+    } catch (err: any) {
+      if (err.name !== "NotAllowedError") {
+        setError(err.message || "Lỗi xác thực sinh trắc học");
+      }
+    } finally {
+      setIsBiometricPrompting(false);
+      setIsSubmitting(false);
+    }
+  };
 
   // Lockout countdown timer
   useEffect(() => {
@@ -174,6 +271,23 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
           </p>
         )}
       </div>
+
+      {/* Biometric Quick Unlock Button */}
+      {canUseBiometric && (
+        <button
+          type="button"
+          disabled={isSubmitting || isLocked || isBiometricPrompting}
+          onClick={triggerBiometricLogin}
+          className="w-full mb-6 min-h-[46px] py-2.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 to-emerald-600/10 hover:from-emerald-500/25 hover:to-emerald-600/20 active:scale-[0.98] border border-emerald-500/30 text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm shadow-emerald-950/40 select-none touch-manipulation disabled:opacity-40"
+        >
+          {isBiometricPrompting ? (
+            <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+          ) : (
+            <Fingerprint className="w-4 h-4 text-emerald-400" />
+          )}
+          <span>{isBiometricPrompting ? "Đang xác thực vân tay / Face ID..." : "Mở khóa bằng Face ID / Vân tay"}</span>
+        </button>
+      )}
 
       {/* Number Pad for Mobile and Desktop Touch */}
       <div className="grid grid-cols-3 gap-3 w-full mb-6">

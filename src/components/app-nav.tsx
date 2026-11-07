@@ -67,7 +67,20 @@ export function AppNav({ children }: { children: React.ReactNode }) {
     };
 
     window.addEventListener("open-quick-add", handleOpen);
-    return () => window.removeEventListener("open-quick-add", handleOpen);
+
+    const handleSmartPasteOpen = () => {
+      refreshModalData();
+      setIsQuickAddOpen(true);
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("trigger-smart-paste"));
+      }, 50);
+    };
+    window.addEventListener("open-smart-paste", handleSmartPasteOpen);
+
+    return () => {
+      window.removeEventListener("open-quick-add", handleOpen);
+      window.removeEventListener("open-smart-paste", handleSmartPasteOpen);
+    };
   }, []);
 
   const handleLogout = async () => {

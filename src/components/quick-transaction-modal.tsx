@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createTransaction, updateTransaction, deleteTransaction } from "@/actions/transactions";
 import { seedDefaultCategoriesAndWallets } from "@/actions/categories";
 import { CategoryModal } from "./category-modal";
+import { SmartPasteModal } from "./smart-paste-modal";
+import type { ParsedTransaction } from "@/lib/sms-parser";
 import { DynamicIcon } from "./icon-helper";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "./toast-provider";
@@ -90,6 +92,17 @@ export function QuickTransactionModal({
   const [categorySearch, setCategorySearch] = useState("");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [isSmartPasteOpen, setIsSmartPasteOpen] = useState(false);
+
+  const handleApplySmartPaste = (parsed: ParsedTransaction) => {
+    setType(parsed.type);
+    setAmountStr(String(parsed.amount));
+    if (parsed.suggestedWalletId) setSelectedWalletId(parsed.suggestedWalletId);
+    if (parsed.suggestedCategoryId) setSelectedCategoryId(parsed.suggestedCategoryId);
+    setDate(parsed.date);
+    if (parsed.note) setNote(parsed.note);
+    toast.success("Đã trích xuất thông tin giao dịch thành công!");
+  };
 
   useEffect(() => {
     setLocalCategories(categories);
@@ -139,6 +152,15 @@ export function QuickTransactionModal({
       }
     }
   }, [type, localCategories, isEditing, selectedCategoryId]);
+
+  // Listener for direct trigger-smart-paste
+  useEffect(() => {
+    const handleTrigger = () => {
+      setIsSmartPasteOpen(true);
+    };
+    window.addEventListener("trigger-smart-paste", handleTrigger);
+    return () => window.removeEventListener("trigger-smart-paste", handleTrigger);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -308,6 +330,17 @@ export function QuickTransactionModal({
             <span className="text-base font-bold text-white">
               {isEditing ? "Chỉnh sửa Giao dịch" : "Ghi nhận Giao dịch"}
             </span>
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={() => setIsSmartPasteOpen(true)}
+                className="px-2.5 py-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 active:scale-95 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-1 transition-all"
+                title="Dán tin nhắn SMS ngân hàng để tự động điền form"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Dán SMS</span>
+              </button>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -786,6 +819,21 @@ export function QuickTransactionModal({
         defaultType={type === "transfer" ? "expense" : type}
         currencySymbol={currencySymbol}
         onSuccess={handleCategoryCreated}
+      />
+
+      {/* Smart Paste / SMS Parser Modal */}
+      <SmartPasteModal
+        isOpen={isSmartPasteOpen}
+        onClose={() => setIsSmartPasteOpen(false)}
+        wallets={wallets}
+        categories={localCategories}
+        currency={currency}
+        currencySymbol={currencySymbol}
+        onApply={handleApplySmartPaste}
+        onSuccess={() => {
+          onSuccess?.();
+          onClose();
+        }}
       />
     </div>
   );

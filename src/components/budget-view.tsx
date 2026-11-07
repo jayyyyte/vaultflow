@@ -9,8 +9,14 @@ import { formatCurrency } from "@/lib/utils";
 import { RecurringBillModal } from "./recurring-bill-modal";
 import { CategoryModal } from "./category-modal";
 import { CategoryAnalyticsView } from "./category-analytics";
+import { NeedsWantsCard } from "./needs-wants-card";
 import { useToast } from "./toast-provider";
-import type { CategoryWithSpending, WalletWithBalance, CategoryAnalytics } from "@/lib/types";
+import type {
+  CategoryWithSpending,
+  WalletWithBalance,
+  CategoryAnalytics,
+  NeedsWantsReport,
+} from "@/lib/types";
 import type { RecurringBillWithDetails } from "@/actions/recurring";
 import type { Category } from "@/db/schema";
 import {
@@ -34,6 +40,7 @@ interface BudgetViewProps {
   wallets: WalletWithBalance[];
   recurringBills: RecurringBillWithDetails[];
   analytics?: CategoryAnalytics;
+  needsWantsReport?: NeedsWantsReport;
   currency?: string;
   currencySymbol?: string;
   currentMonth: string;
@@ -44,13 +51,14 @@ export function BudgetView({
   wallets,
   recurringBills,
   analytics,
+  needsWantsReport,
   currency = "USD",
   currencySymbol = "$",
   currentMonth,
 }: BudgetViewProps) {
   const router = useRouter();
   const { toast, confirm } = useToast();
-  const [activeMainTab, setActiveMainTab] = useState<"budgets" | "analytics">("budgets");
+  const [activeMainTab, setActiveMainTab] = useState<"budgets" | "needs_wants" | "analytics">("budgets");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [defaultCatType, setDefaultCatType] = useState<"expense" | "income">("expense");
@@ -129,12 +137,12 @@ export function BudgetView({
 
   return (
     <div className="space-y-6">
-      {/* Top Tab Switcher: Budgets vs Category Analytics */}
-      <div className="flex items-center gap-1.5 bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 self-start">
+      {/* Top Tab Switcher: Budgets vs 50/30/20 vs Category Analytics */}
+      <div className="flex flex-wrap items-center gap-1.5 bg-zinc-900/90 p-1.5 rounded-2xl border border-zinc-800 self-start">
         <button
           type="button"
           onClick={() => setActiveMainTab("budgets")}
-          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all ${
             activeMainTab === "budgets"
               ? "bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-950/40"
               : "text-zinc-400 hover:text-zinc-200"
@@ -143,10 +151,26 @@ export function BudgetView({
           <Layers className="w-4 h-4" />
           <span>Hạn mức & Ngân sách</span>
         </button>
+
+        {needsWantsReport && (
+          <button
+            type="button"
+            onClick={() => setActiveMainTab("needs_wants")}
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all ${
+              activeMainTab === "needs_wants"
+                ? "bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-950/40"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <PieChart className="w-4 h-4" />
+            <span>Quy tắc 50/30/20</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setActiveMainTab("analytics")}
-          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all ${
+          className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all ${
             activeMainTab === "analytics"
               ? "bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-950/40"
               : "text-zinc-400 hover:text-zinc-200"
@@ -157,7 +181,13 @@ export function BudgetView({
         </button>
       </div>
 
-      {activeMainTab === "analytics" && analytics ? (
+      {activeMainTab === "needs_wants" && needsWantsReport ? (
+        <NeedsWantsCard
+          report={needsWantsReport}
+          currency={currency}
+          currencySymbol={currencySymbol}
+        />
+      ) : activeMainTab === "analytics" && analytics ? (
         <CategoryAnalyticsView
           analytics={analytics}
           currency={currency}
@@ -286,7 +316,12 @@ export function BudgetView({
                             <DynamicIcon name={cat.icon} className="w-5 h-5" />
                           </div>
                           <div>
-                            <h3 className="text-xs sm:text-sm font-bold text-zinc-100">{cat.name}</h3>
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="text-xs sm:text-sm font-bold text-zinc-100">{cat.name}</h3>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-zinc-800/90 text-zinc-400 font-mono">
+                                {cat.classification === "wants" ? "🎯 Hưởng thụ" : cat.classification === "savings" ? "📈 Tích lũy" : "🏠 Thiết yếu"}
+                              </span>
+                            </div>
                             <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">
                               {cat.transactionCount} transactions this month
                             </p>
