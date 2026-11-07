@@ -139,3 +139,19 @@ export function verifyPin(enteredPin: string): boolean {
   const expectedPin = getExpectedPin();
   return enteredPin.trim() === expectedPin.trim();
 }
+
+/**
+ * Creates an HMAC-SHA256 hash of a PIN using the auth secret
+ */
+export async function hashPin(pin: string): Promise<string> {
+  const secret = getAuthSecret();
+  return await signPayload(`vaultflow-pin:${pin.trim()}`, secret);
+}
+
+/**
+ * Verifies a PIN against a previously generated HMAC-SHA256 hash
+ */
+export async function verifyPinHash(pin: string, expectedHash: string): Promise<boolean> {
+  const secret = getAuthSecret();
+  return await verifySignature(`vaultflow-pin:${pin.trim()}`, expectedHash, secret);
+}
