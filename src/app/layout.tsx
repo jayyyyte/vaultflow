@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppNav } from "@/components/app-nav";
 import { ToastProvider } from "@/components/toast-provider";
+import { PWAProvider } from "@/components/pwa-provider";
 
 export const metadata: Metadata = {
   title: "VaultFlow - Personal Finance",
@@ -39,9 +40,11 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen bg-[#09090b] text-[#fafafa] antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
-        <ToastProvider>
-          <AppNav>{children}</AppNav>
-        </ToastProvider>
+        <PWAProvider>
+          <ToastProvider>
+            <AppNav>{children}</AppNav>
+          </ToastProvider>
+        </PWAProvider>
       </body>
     </html>
   );

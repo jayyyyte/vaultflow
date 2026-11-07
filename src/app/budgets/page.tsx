@@ -1,5 +1,9 @@
 import React from "react";
-import { getCategoriesWithSpending, getCategoryAnalytics } from "@/actions/categories";
+import {
+  getCategoriesWithSpending,
+  getCategoryAnalytics,
+  getNeedsWantsAnalysis,
+} from "@/actions/categories";
 import { getWalletsWithBalances } from "@/actions/wallets";
 import { getRecurringBills } from "@/actions/recurring";
 import { getSettingsMap } from "@/actions/settings";
@@ -8,12 +12,20 @@ import { BudgetView } from "@/components/budget-view";
 
 export default async function BudgetsPage() {
   const currentMonth = getCurrentYearMonth();
-  const [categoriesWithSpending, wallets, recurringBills, settingsMap, categoryAnalytics] = await Promise.all([
+  const [
+    categoriesWithSpending,
+    wallets,
+    recurringBills,
+    settingsMap,
+    categoryAnalytics,
+    needsWantsReport,
+  ] = await Promise.all([
     getCategoriesWithSpending(currentMonth),
     getWalletsWithBalances(),
     getRecurringBills(),
     getSettingsMap(),
     getCategoryAnalytics(currentMonth),
+    getNeedsWantsAnalysis(currentMonth),
   ]);
 
   const currencySymbol = settingsMap.currency_symbol || "$";
@@ -22,10 +34,10 @@ export default async function BudgetsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-          Ngân sách & Phân tích Danh mục
+          Ngân sách & Báo cáo Nâng cao
         </h1>
         <p className="text-xs text-zinc-400 mt-1">
-          Theo dõi hạn mức ngân sách, phân tích biến động chi tiêu và hóa đơn cố định
+          Quy tắc tài chính 50/30/20, hạn mức ngân sách tháng & hóa đơn định kỳ
         </p>
       </div>
 
@@ -34,6 +46,7 @@ export default async function BudgetsPage() {
         wallets={wallets}
         recurringBills={recurringBills}
         analytics={categoryAnalytics}
+        needsWantsReport={needsWantsReport}
         currency={settingsMap.currency || "USD"}
         currencySymbol={currencySymbol}
         currentMonth={currentMonth}

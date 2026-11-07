@@ -191,7 +191,12 @@ export default async function DashboardPage({ searchParams }: PageProps) {
               <p className="text-xs text-zinc-400">Income vs. Expense over past 6 months</p>
             </div>
           </div>
-          <CashFlowChart data={cashFlowHistory} currency={currency} currencySymbol={currencySymbol} />
+          <CashFlowChart
+            data={cashFlowHistory}
+            currency={currency}
+            currencySymbol={currencySymbol}
+            referenceMonth={currentMonth}
+          />
         </div>
 
         {/* Expense Category Breakdown */}
