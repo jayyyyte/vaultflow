@@ -33,7 +33,7 @@ Tài liệu này ghi lại toàn bộ đánh giá hiện trạng, kế hoạch g
 ```mermaid
 flowchart TD
     G1["Giai đoạn 1: Chuẩn hóa Trải nghiệm Mobile & Cốt lõi<br/>(Đã hoàn thành)"] --> G2["Giai đoạn 2: Tối ưu Hiệu năng & Production-Ready<br/>(Đã hoàn thành)"]
-    G2 --> G3["Giai đoạn 3: PWA Hoàn chỉnh & Tiện ích Thông minh<br/>(Tiếp theo)"]
+    G2 --> G3["Giai đoạn 3: PWA Hoàn chỉnh & Tiện ích Thông minh<br/>(Đã hoàn thành)"]
 ```
 
 ---
@@ -69,13 +69,19 @@ flowchart TD
 
 ---
 
-### 📱 Giai đoạn 3: Trải nghiệm PWA Nâng cao & Tiện ích Mở rộng
-- [ ] **Service Worker Offline Cache:**
-  - Cài đặt Service Worker chuẩn để lưu trữ App Shell, mở app ngay cả khi mất kết nối mạng.
-- [ ] **Sinh trắc học (WebAuthn / FaceID / TouchID):**
-  - Mở khóa vault trong 1 giây mà không cần gõ 6 số PIN trên thiết bị hỗ trợ.
-- [ ] **Smart Input / Quick Paste:**
-  - Hỗ trợ dán tin nhắn SMS ngân hàng/chuyển khoản để tự động bóc tách số tiền, ví và nội dung giao dịch.
-- [ ] **Báo cáo & Xu hướng Nâng cao:**
-  - Biểu đồ lọc theo khoảng thời gian tùy chọn (Tuần này, Tháng này, Quý này, Năm nay).
-  - Phân tích tỷ lệ chi tiêu cần thiết vs hưởng thụ (Needs vs. Wants).
+### 📱 Giai đoạn 3: Trải nghiệm PWA Nâng cao & Tiện ích Mở rộng (Hoàn thành)
+- [x] **Service Worker Offline Cache & PWA Hoàn chỉnh:**
+  - Cài đặt Service Worker chuẩn (`public/sw.js`) với chiến lược Cache-first cho static assets và Network-first cho navigations.
+  - Trang ngoại tuyến fallback đẹp mắt (`public/offline.html`) và thanh cảnh báo trạng thái mạng thời gian thực (`PWAProvider`).
+  - Đồng bộ `manifest.webmanifest` & `manifest.json` đầy đủ shortcuts (Ghi chép nhanh, Quản lý ví, Sổ giao dịch, Ngân sách).
+- [x] **Sinh trắc học (WebAuthn / Passkeys / Face ID / Touch ID):**
+  - Mở khóa vault trong 1 giây mà không cần gõ 6 số PIN trên các thiết bị hỗ trợ (iOS Face ID/Touch ID, Android Biometrics, Windows Hello, macOS Touch ID).
+  - Quản lý danh sách thiết bị sinh trắc học và tùy chọn tự động gợi ý xác thực sinh trắc học ngay trong Settings.
+- [x] **Smart Input / Quick Paste (Bóc tách SMS & Chuyển khoản thông minh):**
+  - Hỗ trợ dán tin nhắn SMS ngân hàng (Vietcombank, Techcombank, MBBank, ACB, VPBank, TPBank, MoMo...) hoặc đọc từ Clipboard 1 chạm.
+  - Tự động nhận diện số tiền, phân biệt biến động số dư với số dư tài khoản, tự khớp ví và danh mục tương ứng.
+  - Hỗ trợ chế độ "Ghi nhanh ngay" (1 tap) hoặc "Áp dụng vào Form" để chỉnh sửa trước khi lưu.
+- [x] **Báo cáo & Xu hướng Nâng cao:**
+  - Biểu đồ Cash Flow hỗ trợ lọc theo các mốc thời gian linh hoạt: *7 ngày qua*, *Tháng này (theo 4 tuần)*, *Quý này (3 tháng)*, *6 Tháng qua* và *Năm nay (12 tháng)*.
+  - Phân tích chi tiêu theo Quy tắc 50/30/20 (Thiết yếu vs. Hưởng thụ vs. Tích lũy) kèm điểm sức khỏe tài chính và gợi ý cân đối ngân sách.
+  - Hỗ trợ phân loại trực tiếp từng danh mục vào nhóm 50/30/20 trong CategoryModal.
