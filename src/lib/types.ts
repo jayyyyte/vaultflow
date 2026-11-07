@@ -55,6 +55,7 @@ export interface CategoryAnalyticsItem {
   icon: string;
   color: string;
   monthlyBudget: number;
+  classification?: "needs" | "wants" | "savings";
   currentAmount: number;
   previousAmount: number;
   momGrowth: number; // percentage change vs previous month (+15% or -10%)
@@ -63,6 +64,50 @@ export interface CategoryAnalyticsItem {
   avgPerTransaction: number;
   budgetUtilization: number;
   status: "over_budget" | "warning" | "good" | "unbudgeted";
+}
+
+export interface NeedsWantsCategoryItem {
+  id: string;
+  name: string;
+  amount: number;
+  color: string;
+  icon: string;
+  share: number;
+}
+
+export interface NeedsWantsReport {
+  month: string;
+  totalIncome: number;
+  totalExpense: number;
+  needs: {
+    total: number;
+    percentOfIncome: number;
+    percentOfExpense: number;
+    targetPercent: 50;
+    delta: number;
+    categories: NeedsWantsCategoryItem[];
+  };
+  wants: {
+    total: number;
+    percentOfIncome: number;
+    percentOfExpense: number;
+    targetPercent: 30;
+    delta: number;
+    categories: NeedsWantsCategoryItem[];
+  };
+  savings: {
+    total: number;
+    percentOfIncome: number;
+    targetPercent: 20;
+    delta: number;
+    categories: NeedsWantsCategoryItem[];
+  };
+  healthScore: number; // 0 to 100
+  assessment: {
+    title: string;
+    description: string;
+    status: "excellent" | "good" | "warning" | "danger";
+  };
 }
 
 export interface CategoryAnalytics {
