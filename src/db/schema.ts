@@ -22,6 +22,7 @@ export const categories = sqliteTable("categories", {
   icon: text("icon").notNull().default("Tag"),
   color: text("color").notNull().default("#10b981"),
   monthlyBudget: real("monthly_budget").default(0),
+  classification: text("classification", { enum: ["needs", "wants", "savings"] }).notNull().default("needs"),
   createdAt: integer("created_at").notNull().default(sql`(strftime('%s', 'now') * 1000)`),
 });
 
