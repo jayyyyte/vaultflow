@@ -18,31 +18,53 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
   const oldestM = String(oldestDate.getMonth() + 1).padStart(2, "0");
   const sixMonthsAgoKey = `${oldestY}-${oldestM}-01`;
 
-  // ⚡ Run all queries in ONE parallel batch via Promise.all.
-  // Replaces the 14-serial-query waterfall with a single parallel fetch.
+  // ⚡ Run all SQL aggregation queries in ONE parallel batch via Promise.all.
+  // Replaces in-memory transaction scanning with SQLite GROUP BY aggregations.
   const [
     walletList,
     appSettings,
-    allCategories,
     recentTransactions,
     recurring,
-    rangeTx,
+    [monthStats],
+    sixMonthStats,
+    categoryStats,
   ] = await Promise.all([
     getWalletsWithBalances(),
     db.select().from(settings),
-    db.select().from(categories),
     getTransactions({ limit: 8 }),
     getRecurringBills(),
     db
       .select({
-        id: transactions.id,
-        amount: transactions.amount,
-        type: transactions.type,
-        categoryId: transactions.categoryId,
-        date: transactions.date,
+        income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
       })
       .from(transactions)
-      .where(sql`${transactions.date} >= ${sixMonthsAgoKey}`),
+      .where(like(transactions.date, `${month}%`)),
+    db
+      .select({
+        ymKey: sql<string>`substr(${transactions.date}, 1, 7)`,
+        income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+        expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
+      })
+      .from(transactions)
+      .where(sql`${transactions.date} >= ${sixMonthsAgoKey}`)
+      .groupBy(sql`substr(${transactions.date}, 1, 7)`),
+    db
+      .select({
+        categoryId: transactions.categoryId,
+        categoryName: categories.name,
+        categoryColor: categories.color,
+        amount: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+      })
+      .from(transactions)
+      .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      .where(
+        and(
+          eq(transactions.type, "expense"),
+          like(transactions.date, `${month}%`)
+        )
+      )
+      .groupBy(transactions.categoryId, categories.name, categories.color),
   ]);
 
   // 1. Wallets calculations
@@ -67,17 +89,9 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
   const currencySymbol = symbolSetting ? symbolSetting.value : "$";
   const currency = currencySetting ? currencySetting.value : "USD";
 
-  // 3. Transactions for the selected month (filtered in-memory in microseconds)
-  const currentMonthTx = rangeTx.filter((t) => t.date.startsWith(month));
-
-  let monthlyIncome = 0;
-  let monthlyExpense = 0;
-
-  for (const tx of currentMonthTx) {
-    if (tx.type === "income") monthlyIncome += tx.amount;
-    if (tx.type === "expense") monthlyExpense += tx.amount;
-  }
-
+  // 3. Transactions for the selected month (computed via SQL)
+  const monthlyIncome = Number(monthStats?.income) || 0;
+  const monthlyExpense = Number(monthStats?.expense) || 0;
   const monthlySavings = monthlyIncome - monthlyExpense;
   const savingsRate = monthlyIncome > 0 ? (monthlySavings / monthlyIncome) * 100 : 0;
 
@@ -92,7 +106,8 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     currency,
   };
 
-  // 4. Past 6 months cash flow trend for Recharts (computed in-memory from rangeTx)
+  // 4. Past 6 months cash flow trend for Recharts (computed via SQL GROUP BY)
+  const historyMap = new Map(sixMonthStats.map((s) => [s.ymKey, s]));
   const cashFlowHistory: MonthlyCashFlowPoint[] = [];
 
   for (let i = 5; i >= 0; i--) {
@@ -102,14 +117,9 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     const ymKey = `${y}-${m}`;
     const monthLabel = targetDate.toLocaleDateString("en-US", { month: "short" });
 
-    let inc = 0;
-    let exp = 0;
-    for (const r of rangeTx) {
-      if (r.date.startsWith(ymKey)) {
-        if (r.type === "income") inc += r.amount;
-        if (r.type === "expense") exp += r.amount;
-      }
-    }
+    const stat = historyMap.get(ymKey);
+    const inc = Number(stat?.income) || 0;
+    const exp = Number(stat?.expense) || 0;
 
     cashFlowHistory.push({
       month: monthLabel,
@@ -119,31 +129,19 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     });
   }
 
-  // 5. Category Spending Breakdown for Donut Chart
-  const catMap = new Map(allCategories.map((c) => [c.id, c]));
-
-  const categorySpendingMap = new Map<string, number>();
-  for (const tx of currentMonthTx) {
-    if (tx.type === "expense" && tx.categoryId) {
-      const current = categorySpendingMap.get(tx.categoryId) || 0;
-      categorySpendingMap.set(tx.categoryId, current + tx.amount);
-    }
-  }
-
-  const categoryBreakdown: CategorySpendingPoint[] = [];
-  for (const [catId, amount] of categorySpendingMap.entries()) {
-    const cat = catMap.get(catId);
-    if (cat && amount > 0) {
+  // 5. Category Spending Breakdown for Donut Chart (computed via SQL)
+  const categoryBreakdown: CategorySpendingPoint[] = categoryStats
+    .map((cs) => {
+      const amount = Number(cs.amount) || 0;
       const percent = monthlyExpense > 0 ? (amount / monthlyExpense) * 100 : 0;
-      categoryBreakdown.push({
-        name: cat.name,
+      return {
+        name: cs.categoryName,
         amount,
-        color: cat.color,
+        color: cs.categoryColor,
         percent,
-      });
-    }
-  }
-  categoryBreakdown.sort((a, b) => b.amount - a.amount);
+      };
+    })
+    .sort((a, b) => b.amount - a.amount);
 
   return {
     summary,

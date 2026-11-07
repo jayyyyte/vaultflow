@@ -15,31 +15,31 @@ export async function getCategories(): Promise<Category[]> {
 export async function getCategoriesWithSpending(
   month: string = getCurrentYearMonth()
 ): Promise<CategoryWithSpending[]> {
-  const allCategories = await db.select().from(categories).orderBy(categories.name);
-
-  const monthTx = await db
-    .select({
-      categoryId: transactions.categoryId,
-      amount: transactions.amount,
-      type: transactions.type,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.type, "expense"),
-        like(transactions.date, `${month}%`)
+  const [allCategories, spendingStats] = await Promise.all([
+    db.select().from(categories).orderBy(categories.name),
+    db
+      .select({
+        categoryId: transactions.categoryId,
+        total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.type, "expense"),
+          like(transactions.date, `${month}%`),
+          sql`${transactions.categoryId} IS NOT NULL`
+        )
       )
-    );
+      .groupBy(transactions.categoryId),
+  ]);
 
-  const spendingMap = new Map<string, { total: number; count: number }>();
-  for (const tx of monthTx) {
-    if (!tx.categoryId) continue;
-    const current = spendingMap.get(tx.categoryId) || { total: 0, count: 0 };
-    spendingMap.set(tx.categoryId, {
-      total: current.total + tx.amount,
-      count: current.count + 1,
-    });
-  }
+  const spendingMap = new Map(
+    spendingStats.map((s) => [
+      s.categoryId!,
+      { total: Number(s.total) || 0, count: Number(s.count) || 0 },
+    ])
+  );
 
   return allCategories.map((cat) => {
     const stats = spendingMap.get(cat.id) || { total: 0, count: 0 };
@@ -159,21 +159,33 @@ export async function getCategoryAnalytics(
 
   const twoMonthsAgoKey = `${previousMonth}-01`;
 
-  const [allCategories, rangeTx] = await Promise.all([
+  const [
+    allCategories,
+    currentMonthGrouped,
+    prevMonthGrouped,
+  ] = await Promise.all([
     db.select().from(categories).orderBy(categories.name),
     db
       .select({
         categoryId: transactions.categoryId,
-        amount: transactions.amount,
         type: transactions.type,
-        date: transactions.date,
+        total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+        count: sql<number>`COUNT(*)`,
       })
       .from(transactions)
-      .where(sql`${transactions.date} >= ${twoMonthsAgoKey}`),
+      .where(like(transactions.date, `${month}%`))
+      .groupBy(transactions.categoryId, transactions.type),
+    db
+      .select({
+        categoryId: transactions.categoryId,
+        type: transactions.type,
+        total: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(transactions)
+      .where(like(transactions.date, `${previousMonth}%`))
+      .groupBy(transactions.categoryId, transactions.type),
   ]);
-
-  const currentMonthTx = rangeTx.filter((t) => t.date.startsWith(month));
-  const prevMonthTx = rangeTx.filter((t) => t.date.startsWith(previousMonth));
 
   let totalExpenseCurrent = 0;
   let totalExpensePrevious = 0;
@@ -185,34 +197,34 @@ export async function getCategoryAnalytics(
   const currentIncomeMap = new Map<string, { total: number; count: number }>();
   const prevIncomeMap = new Map<string, { total: number; count: number }>();
 
-  for (const tx of currentMonthTx) {
-    if (tx.type === "expense") {
-      totalExpenseCurrent += tx.amount;
-      if (tx.categoryId) {
-        const cur = currentExpenseMap.get(tx.categoryId) || { total: 0, count: 0 };
-        currentExpenseMap.set(tx.categoryId, { total: cur.total + tx.amount, count: cur.count + 1 });
+  for (const row of currentMonthGrouped) {
+    const total = Number(row.total) || 0;
+    const count = Number(row.count) || 0;
+    if (row.type === "expense") {
+      totalExpenseCurrent += total;
+      if (row.categoryId) {
+        currentExpenseMap.set(row.categoryId, { total, count });
       }
-    } else if (tx.type === "income") {
-      totalIncomeCurrent += tx.amount;
-      if (tx.categoryId) {
-        const cur = currentIncomeMap.get(tx.categoryId) || { total: 0, count: 0 };
-        currentIncomeMap.set(tx.categoryId, { total: cur.total + tx.amount, count: cur.count + 1 });
+    } else if (row.type === "income") {
+      totalIncomeCurrent += total;
+      if (row.categoryId) {
+        currentIncomeMap.set(row.categoryId, { total, count });
       }
     }
   }
 
-  for (const tx of prevMonthTx) {
-    if (tx.type === "expense") {
-      totalExpensePrevious += tx.amount;
-      if (tx.categoryId) {
-        const cur = prevExpenseMap.get(tx.categoryId) || { total: 0, count: 0 };
-        prevExpenseMap.set(tx.categoryId, { total: cur.total + tx.amount, count: cur.count + 1 });
+  for (const row of prevMonthGrouped) {
+    const total = Number(row.total) || 0;
+    const count = Number(row.count) || 0;
+    if (row.type === "expense") {
+      totalExpensePrevious += total;
+      if (row.categoryId) {
+        prevExpenseMap.set(row.categoryId, { total, count });
       }
-    } else if (tx.type === "income") {
-      totalIncomePrevious += tx.amount;
-      if (tx.categoryId) {
-        const cur = prevIncomeMap.get(tx.categoryId) || { total: 0, count: 0 };
-        prevIncomeMap.set(tx.categoryId, { total: cur.total + tx.amount, count: cur.count + 1 });
+    } else if (row.type === "income") {
+      totalIncomePrevious += total;
+      if (row.categoryId) {
+        prevIncomeMap.set(row.categoryId, { total, count });
       }
     }
   }

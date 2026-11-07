@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { wallets, transactions } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { WalletWithBalance } from "@/lib/types";
 
@@ -13,42 +13,51 @@ export async function getWalletsWithBalances(): Promise<WalletWithBalance[]> {
     .where(eq(wallets.isArchived, false))
     .orderBy(wallets.createdAt);
 
-  const allTx = await db
+  if (allWallets.length === 0) return [];
+
+  // SQL aggregation for outgoing/source transactions (grouped by walletId)
+  const sourceStats = await db
     .select({
       walletId: transactions.walletId,
-      destinationWalletId: transactions.destinationWalletId,
-      amount: transactions.amount,
-      type: transactions.type,
+      income: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'income' THEN ${transactions.amount} ELSE 0 END), 0)`,
+      expense: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'expense' THEN ${transactions.amount} ELSE 0 END), 0)`,
+      transferOut: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'transfer' THEN ${transactions.amount} ELSE 0 END), 0)`,
     })
-    .from(transactions);
+    .from(transactions)
+    .groupBy(transactions.walletId);
+
+  // SQL aggregation for incoming transfers (grouped by destinationWalletId)
+  const destStats = await db
+    .select({
+      walletId: sql<string>`${transactions.destinationWalletId}`,
+      transferIn: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.type, "transfer"),
+        sql`${transactions.destinationWalletId} IS NOT NULL`
+      )
+    )
+    .groupBy(transactions.destinationWalletId);
+
+  const sourceMap = new Map(sourceStats.map((s) => [s.walletId, s]));
+  const destMap = new Map(destStats.map((d) => [d.walletId, Number(d.transferIn) || 0]));
 
   return allWallets.map((w) => {
-    let balance = w.initialBalance;
-    let totalIncome = 0;
-    let totalExpense = 0;
+    const src = sourceMap.get(w.id);
+    const income = Number(src?.income) || 0;
+    const expense = Number(src?.expense) || 0;
+    const transferOut = Number(src?.transferOut) || 0;
+    const transferIn = destMap.get(w.id) || 0;
 
-    for (const tx of allTx) {
-      if (tx.walletId === w.id) {
-        if (tx.type === "income") {
-          balance += tx.amount;
-          totalIncome += tx.amount;
-        } else if (tx.type === "expense") {
-          balance -= tx.amount;
-          totalExpense += tx.amount;
-        } else if (tx.type === "transfer") {
-          balance -= tx.amount;
-        }
-      }
-      if (tx.destinationWalletId === w.id && tx.type === "transfer") {
-        balance += tx.amount;
-      }
-    }
+    const currentBalance = w.initialBalance + income - expense - transferOut + transferIn;
 
     return {
       ...w,
-      currentBalance: balance,
-      totalIncome,
-      totalExpense,
+      currentBalance,
+      totalIncome: income,
+      totalExpense: expense,
     };
   });
 }
