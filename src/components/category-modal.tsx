@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createCategory, updateCategory, deleteCategory } from "@/actions/categories";
 import { DynamicIcon, ICON_CATEGORIES, ICON_DEFINITIONS, type IconDefinition } from "./icon-helper";
+import { useToast } from "./toast-provider";
 import { X, Check, Trash2, Loader2, Plus, TrendingDown, TrendingUp, Search } from "lucide-react";
 import type { Category } from "@/db/schema";
 
@@ -40,6 +41,7 @@ export function CategoryModal({
   onDeleteSuccess,
 }: CategoryModalProps) {
   const router = useRouter();
+  const { toast, confirm } = useToast();
 
   const [name, setName] = useState(categoryToEdit?.name || "");
   const [type, setType] = useState<"expense" | "income">(
@@ -125,6 +127,7 @@ export function CategoryModal({
         });
 
         if (res.success) {
+          toast.success("Đã cập nhật danh mục thành công");
           const updated: Category = {
             ...categoryToEdit,
             name: trimmedName,
@@ -149,6 +152,7 @@ export function CategoryModal({
         });
 
         if (res.success && res.id) {
+          toast.success("Đã tạo danh mục mới thành công");
           const newCat: Category = {
             id: res.id,
             name: trimmedName,
@@ -174,12 +178,19 @@ export function CategoryModal({
 
   const handleDelete = async () => {
     if (!categoryToEdit) return;
-    if (!confirm(`Bạn có chắc chắn muốn xóa danh mục "${categoryToEdit.name}" không?`)) return;
+    const ok = await confirm({
+      title: "Xác nhận xóa danh mục",
+      message: `Bạn có chắc chắn muốn xóa danh mục "${categoryToEdit.name}" không?`,
+      confirmText: "Xóa danh mục",
+      isDestructive: true,
+    });
+    if (!ok) return;
 
     setIsDeleting(true);
     try {
       const res = await deleteCategory(categoryToEdit.id);
       if (res.success) {
+        toast.success("Đã xóa danh mục thành công");
         onDeleteSuccess?.();
         router.refresh();
         onClose();

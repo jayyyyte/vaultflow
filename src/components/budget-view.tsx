@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import { RecurringBillModal } from "./recurring-bill-modal";
 import { CategoryModal } from "./category-modal";
 import { CategoryAnalyticsView } from "./category-analytics";
+import { useToast } from "./toast-provider";
 import type { CategoryWithSpending, WalletWithBalance, CategoryAnalytics } from "@/lib/types";
 import type { RecurringBillWithDetails } from "@/actions/recurring";
 import type { Category } from "@/db/schema";
@@ -48,6 +49,7 @@ export function BudgetView({
   currentMonth,
 }: BudgetViewProps) {
   const router = useRouter();
+  const { toast, confirm } = useToast();
   const [activeMainTab, setActiveMainTab] = useState<"budgets" | "analytics">("budgets");
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -80,7 +82,12 @@ export function BudgetView({
 
   const handleSaveBudget = async (catId: string) => {
     const val = parseFloat(budgetInput) || 0;
-    await updateCategoryBudget(catId, val);
+    const res = await updateCategoryBudget(catId, val);
+    if (res.success) {
+      toast.success("Đã lưu hạn mức ngân sách");
+    } else {
+      toast.error(res.error || "Không thể cập nhật hạn mức");
+    }
     setEditingBudgetId(null);
     router.refresh();
   };
@@ -90,9 +97,10 @@ export function BudgetView({
     try {
       const res = await payRecurringBill(billId);
       if (res.success) {
-        setSuccessPaidMsg(`Logged payment for "${billName}"!`);
-        setTimeout(() => setSuccessPaidMsg(null), 3000);
+        toast.success(`Đã ghi nhận thanh toán cho "${billName}"!`);
         router.refresh();
+      } else {
+        toast.error(res.error || "Không thể ghi nhận thanh toán");
       }
     } finally {
       setPayingBillId(null);
@@ -100,9 +108,21 @@ export function BudgetView({
   };
 
   const handleDeleteBill = async (id: string, name: string) => {
-    if (!confirm(`Delete recurring bill "${name}"?`)) return;
-    await deleteRecurringBill(id);
-    router.refresh();
+    const ok = await confirm({
+      title: "Xác nhận xóa hóa đơn",
+      message: `Bạn có chắc chắn muốn xóa hóa đơn định kỳ "${name}" không?`,
+      confirmText: "Xóa hóa đơn",
+      isDestructive: true,
+    });
+    if (!ok) return;
+
+    const res = await deleteRecurringBill(id);
+    if (res.success) {
+      toast.success(`Đã xóa hóa đơn định kỳ "${name}"`);
+      router.refresh();
+    } else {
+      toast.error(res.error || "Không thể xóa hóa đơn");
+    }
   };
 
   const todayDay = new Date().getDate();

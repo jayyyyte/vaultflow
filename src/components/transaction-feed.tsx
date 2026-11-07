@@ -6,6 +6,7 @@ import { deleteTransaction } from "@/actions/transactions";
 import { DynamicIcon } from "./icon-helper";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { QuickTransactionModal } from "./quick-transaction-modal";
+import { useToast } from "./toast-provider";
 import type { TransactionWithDetails, WalletWithBalance } from "@/lib/types";
 import type { Category } from "@/db/schema";
 import {
@@ -41,6 +42,7 @@ export function TransactionFeed({
   currencySymbol = "$",
 }: TransactionFeedProps) {
   const router = useRouter();
+  const { toast, confirm } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState<"all" | "expense" | "income" | "transfer">("all");
   const [selectedWalletId, setSelectedWalletId] = useState<string>("all");
@@ -112,11 +114,23 @@ export function TransactionFeed({
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); // Prevent opening edit modal
-    if (!confirm("Bạn có chắc chắn muốn xóa giao dịch này?")) return;
+    const ok = await confirm({
+      title: "Xác nhận xóa giao dịch",
+      message: "Bạn có chắc chắn muốn xóa giao dịch này không? Hành động này sẽ cập nhật lại số dư ví.",
+      confirmText: "Xóa",
+      isDestructive: true,
+    });
+    if (!ok) return;
+
     setDeletingId(id);
     try {
-      await deleteTransaction(id);
-      router.refresh();
+      const res = await deleteTransaction(id);
+      if (res.success) {
+        toast.success("Đã xóa giao dịch thành công");
+        router.refresh();
+      } else {
+        toast.error(res.error || "Không thể xóa giao dịch");
+      }
     } finally {
       setDeletingId(null);
     }

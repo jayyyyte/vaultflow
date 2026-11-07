@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { loginWithPin } from "@/actions/auth";
-import { ShieldCheck, Delete, ArrowRight, Lock, KeyRound, AlertCircle } from "lucide-react";
+import { loginWithPin, getPinLockStatus } from "@/actions/auth";
+import { ShieldCheck, Delete, ArrowRight, Lock, KeyRound, AlertCircle, Clock } from "lucide-react";
 
 export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
   const router = useRouter();
@@ -14,9 +14,45 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
+  const [lockedSeconds, setLockedSeconds] = useState<number>(0);
+
+  // Check initial lock status on mount
+  useEffect(() => {
+    let isMounted = true;
+    getPinLockStatus().then((res) => {
+      if (isMounted && res.isLocked && res.remainingSeconds > 0) {
+        setLockedSeconds(res.remainingSeconds);
+        setError(`Hệ thống đang khóa tạm do nhập sai PIN quá 5 lần. Vui lòng đợi ${res.remainingSeconds}s.`);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Lockout countdown timer
+  useEffect(() => {
+    if (lockedSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setLockedSeconds((prev) => {
+        if (prev <= 1) {
+          setError(null);
+          return 0;
+        }
+        const next = prev - 1;
+        setError(`Hệ thống đang khóa tạm do nhập sai PIN quá 5 lần. Vui lòng đợi ${next}s.`);
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockedSeconds]);
+
+  const isLocked = lockedSeconds > 0;
 
   const handleKeyPress = (num: string) => {
-    if (isSubmitting) return;
+    if (isSubmitting || isLocked) return;
     if (pin.length < 6) {
       const nextPin = pin + num;
       setPin(nextPin);
@@ -28,19 +64,19 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
   };
 
   const handleDelete = () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isLocked) return;
     setPin((prev) => prev.slice(0, -1));
     setError(null);
   };
 
   const handleClear = () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isLocked) return;
     setPin("");
     setError(null);
   };
 
   const submitPin = async (codeToSubmit: string) => {
-    if (codeToSubmit.length === 0) return;
+    if (codeToSubmit.length === 0 || isLocked) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -50,7 +86,10 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
         router.push(redirectPath);
         router.refresh();
       } else {
-        setError(res.error || "Incorrect PIN code");
+        if (res.lockRemainingSeconds && res.lockRemainingSeconds > 0) {
+          setLockedSeconds(res.lockRemainingSeconds);
+        }
+        setError(res.error || "Mã PIN không chính xác");
         setIsShaking(true);
         setTimeout(() => {
           setIsShaking(false);
@@ -58,7 +97,7 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
         }, 500);
       }
     } catch {
-      setError("An unexpected error occurred");
+      setError("Đã xảy ra lỗi không mong muốn");
       setIsShaking(true);
       setTimeout(() => {
         setIsShaking(false);
@@ -72,7 +111,7 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
   // Keyboard event listener for physical keyboard support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isSubmitting) return;
+      if (isSubmitting || isLocked) return;
       if (/^[0-9]$/.test(e.key)) {
         handleKeyPress(e.key);
       } else if (e.key === "Backspace") {
@@ -86,7 +125,7 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [pin, isSubmitting]);
+  }, [pin, isSubmitting, isLocked]);
 
   return (
     <div className="flex flex-col items-center justify-center w-full max-w-sm mx-auto px-4">
@@ -142,9 +181,9 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
           <button
             key={num}
             type="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLocked}
             onClick={() => handleKeyPress(num)}
-            className="h-16 rounded-2xl bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 active:scale-95 border border-zinc-800/80 text-xl font-semibold text-zinc-100 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500/40 select-none touch-manipulation shadow-sm"
+            className="h-16 rounded-2xl bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 active:scale-95 border border-zinc-800/80 text-xl font-semibold text-zinc-100 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500/40 select-none touch-manipulation shadow-sm disabled:opacity-40"
           >
             {num}
           </button>
@@ -153,7 +192,7 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
         {/* Clear Button */}
         <button
           type="button"
-          disabled={isSubmitting || pin.length === 0}
+          disabled={isSubmitting || isLocked || pin.length === 0}
           onClick={handleClear}
           className="h-16 rounded-2xl bg-zinc-900/40 hover:bg-zinc-900 active:bg-zinc-800 active:scale-95 border border-zinc-800/40 text-xs font-medium text-zinc-400 transition-all flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none select-none touch-manipulation"
         >
@@ -163,9 +202,9 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
         {/* Zero */}
         <button
           type="button"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLocked}
           onClick={() => handleKeyPress("0")}
-          className="h-16 rounded-2xl bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 active:scale-95 border border-zinc-800/80 text-xl font-semibold text-zinc-100 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500/40 select-none touch-manipulation shadow-sm"
+          className="h-16 rounded-2xl bg-zinc-900/80 hover:bg-zinc-800 active:bg-zinc-700 active:scale-95 border border-zinc-800/80 text-xl font-semibold text-zinc-100 transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500/40 select-none touch-manipulation shadow-sm disabled:opacity-40"
         >
           0
         </button>
@@ -174,16 +213,16 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
         {pin.length === 6 ? (
           <button
             type="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLocked}
             onClick={() => submitPin(pin)}
-            className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 active:scale-95 border border-emerald-500/60 text-zinc-950 font-bold transition-all flex items-center justify-center select-none touch-manipulation shadow-lg shadow-emerald-950"
+            className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 active:scale-95 border border-emerald-500/60 text-zinc-950 font-bold transition-all flex items-center justify-center select-none touch-manipulation shadow-lg shadow-emerald-950 disabled:opacity-40"
           >
             <ArrowRight className="w-6 h-6 text-zinc-950" />
           </button>
         ) : (
           <button
             type="button"
-            disabled={isSubmitting || pin.length === 0}
+            disabled={isSubmitting || isLocked || pin.length === 0}
             onClick={handleDelete}
             className="h-16 rounded-2xl bg-zinc-900/40 hover:bg-zinc-900 active:bg-zinc-800 active:scale-95 border border-zinc-800/40 text-zinc-400 hover:text-zinc-200 transition-all flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none select-none touch-manipulation"
             aria-label="Delete"

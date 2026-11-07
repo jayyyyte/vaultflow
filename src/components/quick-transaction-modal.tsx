@@ -7,6 +7,7 @@ import { seedDefaultCategoriesAndWallets } from "@/actions/categories";
 import { CategoryModal } from "./category-modal";
 import { DynamicIcon } from "./icon-helper";
 import { formatCurrency } from "@/lib/utils";
+import { useToast } from "./toast-provider";
 import type { WalletWithBalance, TransactionWithDetails } from "@/lib/types";
 import type { Category } from "@/db/schema";
 import {
@@ -58,6 +59,7 @@ export function QuickTransactionModal({
 }: QuickTransactionModalProps) {
   const isEditing = !!transactionToEdit;
   const router = useRouter();
+  const { toast, confirm } = useToast();
 
   const [type, setType] = useState<"expense" | "income" | "transfer">(
     transactionToEdit?.type || defaultType
@@ -214,6 +216,7 @@ export function QuickTransactionModal({
         });
 
         if (res.success) {
+          toast.success("Đã cập nhật giao dịch thành công");
           onSuccess?.();
           onClose();
         } else {
@@ -231,6 +234,7 @@ export function QuickTransactionModal({
         });
 
         if (res.success) {
+          toast.success("Đã ghi nhận giao dịch thành công");
           onSuccess?.();
           onClose();
         } else {
@@ -246,12 +250,19 @@ export function QuickTransactionModal({
 
   const handleDelete = async () => {
     if (!transactionToEdit) return;
-    if (!confirm("Bạn có chắc chắn muốn xóa giao dịch này không?")) return;
+    const ok = await confirm({
+      title: "Xác nhận xóa giao dịch",
+      message: "Bạn có chắc chắn muốn xóa giao dịch này không? Hành động này không thể hoàn tác.",
+      confirmText: "Xóa",
+      isDestructive: true,
+    });
+    if (!ok) return;
 
     setIsDeleting(true);
     try {
       const res = await deleteTransaction(transactionToEdit.id);
       if (res.success) {
+        toast.success("Đã xóa giao dịch thành công");
         onDeleteSuccess ? onDeleteSuccess() : onSuccess?.();
         onClose();
       } else {

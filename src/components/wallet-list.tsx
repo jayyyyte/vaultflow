@@ -7,6 +7,7 @@ import { DynamicIcon } from "./icon-helper";
 import { formatCurrency } from "@/lib/utils";
 import { WalletModal } from "./wallet-modal";
 import { TransferModal } from "./transfer-modal";
+import { useToast } from "./toast-provider";
 import type { WalletWithBalance } from "@/lib/types";
 import {
   Plus,
@@ -31,6 +32,7 @@ interface WalletListProps {
 
 export function WalletList({ initialWallets, currency = "USD", currencySymbol = "$" }: WalletListProps) {
   const router = useRouter();
+  const { toast, confirm } = useToast();
   const [wallets, setWallets] = useState(initialWallets);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingWallet, setEditingWallet] = useState<WalletWithBalance | null>(null);
@@ -51,9 +53,21 @@ export function WalletList({ initialWallets, currency = "USD", currencySymbol = 
   const netWorth = totalLiquid - totalCreditDebt;
 
   const handleArchive = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to archive wallet "${name}"?`)) return;
-    await archiveWallet(id);
-    router.refresh();
+    const ok = await confirm({
+      title: "Lưu trữ ví",
+      message: `Bạn có chắc chắn muốn lưu trữ ví "${name}" không? Ví này sẽ được ẩn khỏi danh sách chính.`,
+      confirmText: "Lưu trữ ví",
+      isDestructive: false,
+    });
+    if (!ok) return;
+
+    const res = await archiveWallet(id);
+    if (res.success) {
+      toast.success(`Đã lưu trữ ví "${name}"`);
+      router.refresh();
+    } else {
+      toast.error(res.error || "Không thể lưu trữ ví");
+    }
   };
 
   return (
