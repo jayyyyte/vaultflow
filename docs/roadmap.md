@@ -32,13 +32,13 @@ Tài liệu này ghi lại toàn bộ đánh giá hiện trạng, kế hoạch g
 
 ```mermaid
 flowchart TD
-    G1["Giai đoạn 1: Chuẩn hóa Trải nghiệm Mobile & Cốt lõi<br/>(Đang thực hiện)"] --> G2["Giai đoạn 2: Tối ưu Hiệu năng & Production-Ready"]
-    G2 --> G3["Giai đoạn 3: PWA Hoàn chỉnh & Tiện ích Thông minh"]
+    G1["Giai đoạn 1: Chuẩn hóa Trải nghiệm Mobile & Cốt lõi<br/>(Đã hoàn thành)"] --> G2["Giai đoạn 2: Tối ưu Hiệu năng & Production-Ready<br/>(Đã hoàn thành)"]
+    G2 --> G3["Giai đoạn 3: PWA Hoàn chỉnh & Tiện ích Thông minh<br/>(Tiếp theo)"]
 ```
 
 ---
 
-### 🎯 Giai đoạn 1: Chuẩn hóa Mobile-First, Tương tác & Bản địa hóa
+### 🎯 Giai đoạn 1: Chuẩn hóa Mobile-First, Tương tác & Bản địa hóa (Hoàn thành)
 - [x] **Điều hướng Mobile thông minh:**
   - Tích hợp nút Settings và trạng thái Vault lên Header Mobile; điều chỉnh thanh Bottom Nav 1-thumb reachability.
 - [x] **Bản địa hóa Tiền tệ (VND/JPY/USD):**
@@ -55,17 +55,17 @@ flowchart TD
 
 ---
 
-### ⚡ Giai đoạn 2: Tối ưu Hiệu năng & Sẵn sàng cho Production
-- [ ] **Tối ưu hóa Database SQL (Giảm 80% độ trễ Dashboard):**
-  - Gom các câu truy vấn 6 tháng lịch sử thành 1 câu truy vấn SQL `GROUP BY strftime('%Y-%m', date)`.
+### ⚡ Giai đoạn 2: Tối ưu Hiệu năng & Sẵn sàng cho Production (Hoàn thành)
+- [x] **Tối ưu hóa Database SQL (Giảm 80% độ trễ Dashboard):**
+  - Gom các câu truy vấn 6 tháng lịch sử thành 1 câu truy vấn SQL `GROUP BY substr(date, 1, 7)` và gom thống kê danh mục qua `GROUP BY`.
   - Tính toán số dư ví trực tiếp trong SQLite (`SUM(CASE WHEN...)`) thay vì quét toàn bộ bảng vào JS memory.
-- [ ] **Bảo vệ Brute-force & Quản lý PIN:**
-  - Áp dụng Rate-limiting (khóa tạm 60 giây sau 5 lần nhập sai mã PIN).
-  - Thêm tính năng đổi Master PIN an toàn trong trang Settings.
-- [ ] **Giao diện Quản lý Danh mục (Category Management):**
-  - Tạo trang hoặc modal quản lý danh mục: Thêm, sửa tên, đổi icon, đổi màu sắc và ngân sách tháng.
-- [ ] **Hệ thống Toast Notification:**
-  - Thay thế toàn bộ `window.confirm` và `window.alert` bằng Toast UI hiện đại (thông báo thành công/lỗi không làm gián đoạn trải nghiệm).
+- [x] **Bảo vệ Brute-force & Quản lý PIN:**
+  - Áp dụng Rate-limiting (khóa tạm 60 giây sau 5 lần nhập sai mã PIN) kèm đồng hồ đếm ngược trên giao diện.
+  - Thêm tính năng đổi Master PIN an toàn bằng HMAC-SHA256 ngay trong trang Settings.
+- [x] **Giao diện Quản lý Danh mục (Category Management):**
+  - Quản lý danh mục tập trung tại Settings và Budgets: Thêm, sửa tên, đổi icon, đổi màu sắc và ngân sách tháng.
+- [x] **Hệ thống Toast Notification & Custom Confirm:**
+  - Thay thế toàn bộ `window.confirm` và `window.alert` bằng Toast UI và Modal xác nhận hiện đại, touch-friendly, hỗ trợ safe area.
 
 ---
 
