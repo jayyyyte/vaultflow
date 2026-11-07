@@ -5,6 +5,19 @@ import { useRouter } from "next/navigation";
 import { exportDatabaseJson, exportTransactionsCsv, importDatabaseJson } from "@/actions/backup";
 import { updateSetting } from "@/actions/settings";
 import { changeMasterPin } from "@/actions/auth";
+import {
+  getBiometricStatus,
+  generateBiometricRegisterOptions,
+  saveBiometricCredential,
+  removeBiometricDevice,
+  type BiometricDevice,
+} from "@/actions/biometric";
+import {
+  isPlatformBiometricAvailable,
+  getFriendlyDeviceName,
+  base64UrlToBuffer,
+  bufferToBase64Url,
+} from "@/lib/webauthn";
 import { useToast } from "./toast-provider";
 import { CategoryModal } from "./category-modal";
 import { DynamicIcon } from "./icon-helper";
@@ -30,6 +43,9 @@ import {
   TrendingDown,
   TrendingUp,
   Layers,
+  Fingerprint,
+  Smartphone,
+  Trash2,
 } from "lucide-react";
 
 interface SettingsViewProps {
@@ -81,9 +97,121 @@ export function SettingsView({
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
+  // Biometric state
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+  const [biometricDevices, setBiometricDevices] = useState<BiometricDevice[]>([]);
+  const [isRegisteringBiometric, setIsRegisteringBiometric] = useState(false);
+  const [autoPromptBiometric, setAutoPromptBiometric] = useState(false);
+
   React.useEffect(() => {
     setLocalCategories(categories);
   }, [categories]);
+
+  React.useEffect(() => {
+    isPlatformBiometricAvailable().then((supported) => {
+      setIsBiometricSupported(supported);
+    });
+
+    getBiometricStatus().then((status) => {
+      setBiometricDevices(status.devices);
+    });
+
+    if (typeof window !== "undefined") {
+      setAutoPromptBiometric(localStorage.getItem("vf_biometric_auto") === "true");
+    }
+  }, []);
+
+  const handleRegisterBiometric = async () => {
+    setIsRegisteringBiometric(true);
+    try {
+      const options = await generateBiometricRegisterOptions();
+      const friendlyName = getFriendlyDeviceName();
+
+      const credential = (await navigator.credentials.create({
+        publicKey: {
+          challenge: base64UrlToBuffer(options.challenge),
+          rp: options.rp,
+          user: {
+            id: new TextEncoder().encode(options.user.id),
+            name: options.user.name,
+            displayName: options.user.displayName,
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: "public-key" }, // ES256
+            { alg: -257, type: "public-key" }, // RS256
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required",
+            residentKey: "preferred",
+          },
+          timeout: 60000,
+          attestation: "none",
+        },
+      })) as PublicKeyCredential | null;
+
+      if (!credential) {
+        toast.error("Đã hủy đăng ký sinh trắc học");
+        return;
+      }
+
+      const res = await saveBiometricCredential({
+        credentialId: credential.id,
+        deviceName: friendlyName,
+      });
+
+      if (res.success) {
+        toast.success(`Đã kích hoạt Face ID / Touch ID cho: ${friendlyName}!`);
+        localStorage.setItem("vf_biometric_auto", "true");
+        setAutoPromptBiometric(true);
+        const status = await getBiometricStatus();
+        setBiometricDevices(status.devices);
+      } else {
+        toast.error(res.error || "Không thể kích hoạt sinh trắc học");
+      }
+    } catch (err: any) {
+      if (err.name === "NotAllowedError") {
+        toast.error("Đã hủy thao tác sinh trắc học trên thiết bị");
+      } else {
+        toast.error(err.message || "Lỗi khi kích hoạt sinh trắc học");
+      }
+    } finally {
+      setIsRegisteringBiometric(false);
+    }
+  };
+
+  const handleRemoveBiometric = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: "Xác nhận xóa thiết bị",
+      message: `Bạn có chắc chắn muốn hủy kích hoạt mở khóa sinh trắc học cho ${name}?`,
+      confirmText: "Hủy kích hoạt",
+      isDestructive: true,
+    });
+    if (!ok) return;
+
+    const res = await removeBiometricDevice(id);
+    if (res.success) {
+      toast.success("Đã xóa thiết bị thành công");
+      setBiometricDevices((prev) => prev.filter((d) => d.id !== id));
+      if (biometricDevices.length <= 1) {
+        localStorage.removeItem("vf_biometric_auto");
+        setAutoPromptBiometric(false);
+      }
+    } else {
+      toast.error(res.error || "Không thể xóa thiết bị");
+    }
+  };
+
+  const handleToggleAutoPrompt = (checked: boolean) => {
+    setAutoPromptBiometric(checked);
+    if (checked) {
+      localStorage.setItem("vf_biometric_auto", "true");
+      toast.success("Đã bật tự động gợi ý Face ID / Vân tay khi đăng nhập");
+    } else {
+      localStorage.removeItem("vf_biometric_auto");
+      toast.success("Đã tắt tự động gợi ý sinh trắc học");
+    }
+  };
 
   const handleCurrencyChange = async (newCode: string) => {
     const cur = CURRENCIES.find((c) => c.code === newCode);
@@ -449,6 +577,92 @@ export function SettingsView({
             </button>
           </div>
         </form>
+
+        {/* Biometric Passkey / Face ID Management */}
+        <div className="pt-4 border-t border-zinc-800/80 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Fingerprint className="w-4 h-4 text-emerald-400" />
+                Mở khóa Sinh trắc học (Face ID / Vân tay)
+              </h3>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Mở vault trong 1 giây bằng WebAuthn / Passkey mà không cần nhập lại 6 số PIN
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={isRegisteringBiometric}
+              onClick={handleRegisterBiometric}
+              className="px-3.5 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 active:scale-95 border border-emerald-500/40 text-emerald-300 font-bold text-xs flex items-center gap-1.5 transition-all self-start sm:self-auto disabled:opacity-40"
+            >
+              {isRegisteringBiometric ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+              )}
+              <span>Kích hoạt thiết bị này</span>
+            </button>
+          </div>
+
+          {/* Registered Devices List */}
+          {biometricDevices.length > 0 ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {biometricDevices.map((device) => (
+                  <div
+                    key={device.id}
+                    className="p-3 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+                        <Smartphone className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="truncate">
+                        <span className="font-semibold text-zinc-200 block truncate">
+                          {device.deviceName}
+                        </span>
+                        <span className="text-[10px] text-zinc-500">
+                          Đã thêm: {new Date(device.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveBiometric(device.id, device.deviceName)}
+                      className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 transition-colors shrink-0"
+                      title="Xóa thiết bị này"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Auto Prompt Toggle */}
+              <div className="pt-2 flex items-center justify-between bg-zinc-900/40 p-3 rounded-xl border border-zinc-800/60">
+                <span className="text-xs text-zinc-300">
+                  Tự động gợi ý mở khóa Face ID / Vân tay khi vào trang đăng nhập
+                </span>
+                <input
+                  type="checkbox"
+                  checked={autoPromptBiometric}
+                  onChange={(e) => handleToggleAutoPrompt(e.target.checked)}
+                  className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-zinc-900/40 border border-zinc-800/60 flex items-center gap-2.5 text-xs text-zinc-400">
+              <Fingerprint className="w-4 h-4 text-zinc-500 shrink-0" />
+              <span>
+                Chưa có thiết bị nào được kích hoạt Face ID / Touch ID. Bấm nút &quot;Kích hoạt thiết bị này&quot; để thiết lập mở khóa tức thì!
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Currency Selector */}
         <div className="pt-3 border-t border-zinc-800/80">
