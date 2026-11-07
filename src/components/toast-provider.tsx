@@ -80,12 +80,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Handle Escape key to cancel confirm dialog
+  React.useEffect(() => {
+    if (!confirmDialog?.isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        confirmDialog.resolve(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [confirmDialog]);
+
   return (
     <ToastContext.Provider value={{ toast, confirm }}>
       {children}
 
       {/* Floating Toast Container */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none px-4 max-w-sm w-full safe-top">
+      <div className="fixed top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-2 pointer-events-none px-4 max-w-sm w-full">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -98,7 +110,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 : "bg-zinc-900/95 border-zinc-700/80 text-zinc-100 shadow-black/40"
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
               {t.type === "success" && (
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
               )}
@@ -108,16 +120,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {t.type === "info" && (
                 <Info className="w-5 h-5 text-blue-400 shrink-0" />
               )}
-              <span className="text-xs font-semibold truncate leading-tight">
+              <span className="text-xs font-semibold leading-snug break-words">
                 {t.message}
               </span>
             </div>
             <button
               type="button"
               onClick={() => removeToast(t.id)}
-              className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+              className="text-zinc-400 hover:text-white w-8 h-8 rounded-lg hover:bg-zinc-800 transition-colors flex items-center justify-center shrink-0 -mr-1"
+              aria-label="Đóng thông báo"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         ))}
@@ -125,7 +138,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
       {/* Modern Confirmation Modal replacing window.confirm */}
       {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="w-full max-w-md bg-[#121215] border border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-scaleUp">
             <div className="flex items-start gap-4">
               <div

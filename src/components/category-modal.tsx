@@ -225,14 +225,14 @@ export function CategoryModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-800/70 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-full bg-zinc-800/70 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-4">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
               {errorMessage}
@@ -325,7 +325,7 @@ export function CategoryModal({
                     key={c}
                     type="button"
                     onClick={() => setColor(c)}
-                    className="h-9 rounded-xl flex items-center justify-center transition-all border border-zinc-700/60 active:scale-95"
+                    className="h-11 rounded-xl flex items-center justify-center transition-all border border-zinc-700/60 active:scale-95"
                     style={{ backgroundColor: c }}
                   >
                     {isSelected && <Check className="w-4 h-4 text-white stroke-[3] drop-shadow" />}
@@ -434,7 +434,7 @@ export function CategoryModal({
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting || isSubmitting}
-                className="h-11 px-3.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-colors disabled:opacity-50"
+                className="h-11 min-w-[44px] px-3.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-colors disabled:opacity-50"
                 title="Xóa danh mục"
               >
                 {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}

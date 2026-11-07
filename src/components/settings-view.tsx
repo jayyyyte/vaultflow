@@ -192,8 +192,8 @@ export function SettingsView({
       return;
     }
 
-    if (!newPin || !/^\d{4,6}$/.test(newPin.trim())) {
-      setPinChangeError("Mã PIN mới phải từ 4 đến 6 chữ số (chỉ bao gồm số)");
+    if (!newPin || !/^\d{6}$/.test(newPin.trim())) {
+      setPinChangeError("Mã PIN mới phải bao gồm đúng 6 chữ số (chỉ bao gồm số từ 0-9)");
       return;
     }
 
@@ -251,7 +251,7 @@ export function SettingsView({
               setEditingCategory(null);
               setIsCategoryModalOpen(true);
             }}
-            className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-emerald-950 self-start sm:self-auto"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm shadow-emerald-950 self-start sm:self-auto"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             Thêm danh mục
@@ -397,24 +397,24 @@ export function SettingsView({
                 inputMode="numeric"
                 maxLength={6}
                 value={currentPin}
-                onChange={(e) => setCurrentPin(e.target.value)}
+                onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
                 placeholder="••••••"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white font-mono tracking-widest focus:outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-mono tracking-widest focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div>
               <label className="text-xs font-semibold text-zinc-400 block mb-1">
-                Mã PIN mới (4-6 số)
+                Mã PIN mới (6 chữ số)
               </label>
               <input
                 type="password"
                 inputMode="numeric"
                 maxLength={6}
                 value={newPin}
-                onChange={(e) => setNewPin(e.target.value)}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                 placeholder="••••••"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white font-mono tracking-widest focus:outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-mono tracking-widest focus:outline-none focus:border-emerald-500"
               />
             </div>
 
@@ -427,9 +427,9 @@ export function SettingsView({
                 inputMode="numeric"
                 maxLength={6}
                 value={confirmNewPin}
-                onChange={(e) => setConfirmNewPin(e.target.value)}
+                onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ""))}
                 placeholder="••••••"
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white font-mono tracking-widest focus:outline-none focus:border-emerald-500"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white font-mono tracking-widest focus:outline-none focus:border-emerald-500"
               />
             </div>
           </div>
@@ -438,7 +438,7 @@ export function SettingsView({
             <button
               type="submit"
               disabled={isChangingPin || !currentPin || !newPin || !confirmNewPin}
-              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 disabled:pointer-events-none shadow-sm shadow-emerald-950"
+              className="min-h-[44px] px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-zinc-950 text-xs font-bold flex items-center gap-2 transition-all disabled:opacity-40 disabled:pointer-events-none shadow-sm shadow-emerald-950"
             >
               {isChangingPin ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />

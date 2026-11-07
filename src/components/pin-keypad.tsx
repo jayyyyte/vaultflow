@@ -240,7 +240,7 @@ export function PinKeypad({ isDefaultPin }: { isDefaultPin?: boolean }) {
             Default PIN: <span className="font-mono font-bold tracking-widest bg-emerald-900/50 px-1.5 py-0.5 rounded text-emerald-200">123456</span>
           </div>
           <p className="text-[11px] text-zinc-400 mt-1">
-            To set your private PIN, configure <code className="text-zinc-300 font-mono">VERCEL_APP_PIN</code> in your environment.
+            Đổi mã PIN riêng tư ngay tại trang <strong className="text-zinc-200">Cài đặt (Settings)</strong> hoặc cấu hình <code className="text-zinc-300 font-mono">VERCEL_APP_PIN</code>.
           </p>
         </div>
       )}
