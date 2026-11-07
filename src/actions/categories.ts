@@ -69,6 +69,9 @@ export async function updateCategoryBudget(
 
     revalidatePath("/");
     revalidatePath("/budgets");
+    revalidatePath("/transactions");
+    revalidatePath("/wallets");
+    revalidatePath("/settings");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update budget" };
@@ -101,6 +104,8 @@ export async function createCategory(data: {
     revalidatePath("/");
     revalidatePath("/budgets");
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
+    revalidatePath("/settings");
     return { success: true, id };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to create category" };
@@ -113,6 +118,8 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; er
     revalidatePath("/");
     revalidatePath("/budgets");
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
+    revalidatePath("/settings");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to delete category" };
@@ -142,6 +149,8 @@ export async function updateCategory(
     revalidatePath("/");
     revalidatePath("/budgets");
     revalidatePath("/transactions");
+    revalidatePath("/wallets");
+    revalidatePath("/settings");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update category" };

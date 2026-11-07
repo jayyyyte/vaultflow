@@ -93,6 +93,8 @@ export async function createWallet(data: {
     revalidatePath("/");
     revalidatePath("/wallets");
     revalidatePath("/transactions");
+    revalidatePath("/budgets");
+    revalidatePath("/settings");
     return { success: true, id };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to create wallet" };
@@ -120,6 +122,9 @@ export async function updateWallet(
 
     revalidatePath("/");
     revalidatePath("/wallets");
+    revalidatePath("/transactions");
+    revalidatePath("/budgets");
+    revalidatePath("/settings");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to update wallet" };
@@ -135,6 +140,9 @@ export async function archiveWallet(id: string): Promise<{ success: boolean; err
 
     revalidatePath("/");
     revalidatePath("/wallets");
+    revalidatePath("/transactions");
+    revalidatePath("/budgets");
+    revalidatePath("/settings");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to archive wallet" };
@@ -171,6 +179,7 @@ export async function transferBetweenWallets(data: {
     revalidatePath("/");
     revalidatePath("/wallets");
     revalidatePath("/transactions");
+    revalidatePath("/budgets");
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Transfer failed" };

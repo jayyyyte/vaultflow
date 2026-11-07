@@ -52,12 +52,12 @@ export async function getDashboardData(month: string = getCurrentYearMonth()) {
     db
       .select({
         categoryId: transactions.categoryId,
-        categoryName: categories.name,
-        categoryColor: categories.color,
+        categoryName: sql<string>`COALESCE(${categories.name}, 'Chưa phân loại')`,
+        categoryColor: sql<string>`COALESCE(${categories.color}, '#71717a')`,
         amount: sql<number>`COALESCE(SUM(${transactions.amount}), 0)`,
       })
       .from(transactions)
-      .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
       .where(
         and(
           eq(transactions.type, "expense"),

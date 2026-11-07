@@ -34,12 +34,15 @@ export async function loginWithPin(pin: string): Promise<LoginResult> {
     .select()
     .from(settings)
     .where(
-      sql`${settings.key} IN ('pin_failed_attempts', 'pin_locked_until', 'app_master_pin_hash')`
+      sql`${settings.key} IN ('pin_failed_attempts', 'pin_locked_until', 'app_master_pin_hash', 'pin_last_attempt_at')`
     );
 
   const settingsMap = new Map(authSettings.map((s) => [s.key, s.value]));
   const lockedUntil = parseInt(settingsMap.get("pin_locked_until") || "0", 10);
-  const failedAttempts = parseInt(settingsMap.get("pin_failed_attempts") || "0", 10);
+  const lastAttemptAt = parseInt(settingsMap.get("pin_last_attempt_at") || "0", 10);
+  // Auto-reset failed attempts after 15 minutes of inactivity
+  const isAttemptsExpired = lastAttemptAt > 0 && now - lastAttemptAt > 15 * 60 * 1000;
+  const failedAttempts = isAttemptsExpired ? 0 : parseInt(settingsMap.get("pin_failed_attempts") || "0", 10);
   const storedHash = settingsMap.get("app_master_pin_hash");
 
   // Check if currently locked
@@ -79,6 +82,13 @@ export async function loginWithPin(pin: string): Promise<LoginResult> {
             target: settings.key,
             set: { value: "0", updatedAt: sql`(strftime('%s', 'now') * 1000)` },
           }),
+        db
+          .insert(settings)
+          .values({ key: "pin_last_attempt_at", value: String(now) })
+          .onConflictDoUpdate({
+            target: settings.key,
+            set: { value: String(now), updatedAt: sql`(strftime('%s', 'now') * 1000)` },
+          }),
       ]);
       return {
         success: false,
@@ -86,13 +96,22 @@ export async function loginWithPin(pin: string): Promise<LoginResult> {
         lockRemainingSeconds: 60,
       };
     } else {
-      await db
-        .insert(settings)
-        .values({ key: "pin_failed_attempts", value: String(newAttempts) })
-        .onConflictDoUpdate({
-          target: settings.key,
-          set: { value: String(newAttempts), updatedAt: sql`(strftime('%s', 'now') * 1000)` },
-        });
+      await Promise.all([
+        db
+          .insert(settings)
+          .values({ key: "pin_failed_attempts", value: String(newAttempts) })
+          .onConflictDoUpdate({
+            target: settings.key,
+            set: { value: String(newAttempts), updatedAt: sql`(strftime('%s', 'now') * 1000)` },
+          }),
+        db
+          .insert(settings)
+          .values({ key: "pin_last_attempt_at", value: String(now) })
+          .onConflictDoUpdate({
+            target: settings.key,
+            set: { value: String(now), updatedAt: sql`(strftime('%s', 'now') * 1000)` },
+          }),
+      ]);
       const attemptsLeft = 5 - newAttempts;
       return {
         success: false,
@@ -103,7 +122,7 @@ export async function loginWithPin(pin: string): Promise<LoginResult> {
   }
 
   // Success: reset attempts and lock if any existed
-  if (failedAttempts > 0 || lockedUntil > 0) {
+  if (failedAttempts > 0 || lockedUntil > 0 || lastAttemptAt > 0) {
     await Promise.all([
       db
         .insert(settings)
@@ -115,6 +134,13 @@ export async function loginWithPin(pin: string): Promise<LoginResult> {
       db
         .insert(settings)
         .values({ key: "pin_locked_until", value: "0" })
+        .onConflictDoUpdate({
+          target: settings.key,
+          set: { value: "0", updatedAt: sql`(strftime('%s', 'now') * 1000)` },
+        }),
+      db
+        .insert(settings)
+        .values({ key: "pin_last_attempt_at", value: "0" })
         .onConflictDoUpdate({
           target: settings.key,
           set: { value: "0", updatedAt: sql`(strftime('%s', 'now') * 1000)` },
@@ -168,8 +194,8 @@ export async function changeMasterPin(
     if (!currentPin) {
       return { success: false, error: "Vui lòng nhập mã PIN hiện tại" };
     }
-    if (!newPin || !/^\d{4,6}$/.test(newPin.trim())) {
-      return { success: false, error: "Mã PIN mới phải từ 4 đến 6 chữ số (chỉ bao gồm số)" };
+    if (!newPin || !/^\d{6}$/.test(newPin.trim())) {
+      return { success: false, error: "Mã PIN mới phải bao gồm đúng 6 chữ số (chỉ bao gồm số từ 0-9)" };
     }
 
     const [storedPinSetting] = await db
